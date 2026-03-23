@@ -1,0 +1,8 @@
+//
+// Created by khalaf on 3/23/26.
+//
+
+#ifndef EMBEDDED_PROJECT1_STD_TYPES_H
+#define EMBEDDED_PROJECT1_STD_TYPES_H
+
+#endif //EMBEDDED_PROJECT1_STD_TYPES_H
