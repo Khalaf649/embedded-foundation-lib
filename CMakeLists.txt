@@ -6,7 +6,7 @@ set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
 # 1. Tell CMake where to find your header files (Requirement A1, A2, A3)
-include_directories(inc)
+include_directories(include)
 
 # 2. Collect all your source files
 file(GLOB SOURCES
