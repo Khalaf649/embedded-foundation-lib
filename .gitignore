@@ -1,2 +1,14 @@
+# CLion and CMake
 cmake-build-debug
+cmake-build-release
 .idea
+
+# Compiled Binaries
+*.elf
+*.bin
+*.exe
+*.o
+
+# OS Files
+.DS_Store
+Thumbs.db
