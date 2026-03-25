@@ -87,7 +87,7 @@ Std_ReturnType MemScan_Compare(P_void BaseAddr1, P_void BaseAddr2, uint32 Size, 
     return E_OK;
 }
 
-Std_ReturnType MemScan_FindByte(P_void BaseAddr, uint32 Size, uint8 Data, uint32 *OutOffset) {
+Std_ReturnType MemScan_FindByte(P_void BaseAddr, uint32 Size, uint8 Data, sint32 *OutOffset) {
     uint8* p = (uint8*)BaseAddr;
     if (p == NULL || OutOffset == NULL) return E_NOT_OK;
 
@@ -97,6 +97,6 @@ Std_ReturnType MemScan_FindByte(P_void BaseAddr, uint32 Size, uint8 Data, uint32
             return E_OK;
         }
     }
-
-    return E_NOT_OK; /* Not found */
+    *OutOffset=-1;
+    return E_OK;
 }

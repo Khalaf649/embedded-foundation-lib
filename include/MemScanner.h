@@ -19,6 +19,6 @@ Std_ReturnType MemScan_Fill(P_void BaseAddr, uint32 Size, uint8 Data);
 /* A3: Memory Inspection Operations */
 Std_ReturnType MemScan_HexDump(P_void BaseAddr, uint32 Size);
 Std_ReturnType MemScan_Compare(P_void BaseAddr1, P_void BaseAddr2, uint32 Size, uint32 *OutOffset);
-Std_ReturnType MemScan_FindByte(P_void BaseAddr, uint32 Size, uint8 Data, uint32 *OutOffset);
+Std_ReturnType MemScan_FindByte(P_void BaseAddr, uint32 Size, uint8 Data, sint32 *OutOffset);
 
 #endif /* MEMSCANNER_H_ */
