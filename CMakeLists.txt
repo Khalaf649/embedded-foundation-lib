@@ -19,7 +19,8 @@ add_executable(${PROJECT_NAME} ${SOURCES}
         include/BIT_MATH.h
         include/MemScanner.h
         src/MemScanner.c
-        src/MsgCodec.c
+        include/Message.h
+        src/Message.c
 )
 
 # Optional: Add compiler flags to catch common embedded mistakes

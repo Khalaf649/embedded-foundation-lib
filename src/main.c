@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "STD_TYPES.h"
 #include "MemScanner.h"
+#include "Message.h"
 int main(void) {
-    uint32 y = 0x11223344;
+    print();
 
-    MemScan_HexDump(&y,5);
 }
