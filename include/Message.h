@@ -14,6 +14,9 @@
 #define MSG_PRIORITY_NORMAL 0
 #define MSG_PRIORITY_HIGH   1
 
+/* Message Payload Length */
+#define MSG_PAYLOAD_LENGTH 4
+
 
 typedef union {
     uint32 fullword;
@@ -28,6 +31,8 @@ typedef struct {
     uint8     length;  /* Byte 1: Always set to 4 */
 } __attribute__((packed)) Message_t;
 
-
+Std_ReturnType Msg_Encode(uint8 Type, uint8 Priority, Payload_t *InPayload, P_void OutBuffer);
+Std_ReturnType PreProcess_SensorReading(uint16 Temperature, uint16 Humidity, Payload_t *OutPayload);
+Std_ReturnType PreProcess_DeviceCommand(uint8 CommandID, uint8 Parameter, Payload_t *OutPayload);
 
 #endif //EMBEDDED_PROJECT1_MESSAGE_H
