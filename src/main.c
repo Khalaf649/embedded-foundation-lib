@@ -35,7 +35,7 @@ int main(void) {
     PreProcess_DeviceCommand(0x01, 0xFF, &TempPayload);
     Msg_Encode(MSG_TYPE_DEVICE_COMMAND, MSG_PRIORITY_HIGH, &TempPayload, CommandBuffer);
 
-    /*  Decode & Trigger Handlers */
+    /*  Decode & Trigger Handlers  */
     printf("Processing Sensor Data...");
     Msg_Decode(SensorBuffer, &DummyResult);
 
