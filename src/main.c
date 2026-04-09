@@ -110,6 +110,20 @@ int main(void) {
     printf("---------------------------------------------------------\n");
 
 
+    /* Memory Find Byte*/
+    sint32 findOffset1, findOffset2;
+
+    /* Search for a byte that EXISTS (0x58 is the Humidity LSB) */
+     MemScan_FindByte(SensorBuffer, 6, 0x58,&findOffset1);
+
+    /* Search for a byte that DOES NOT exist */
+    MemScan_FindByte(SensorBuffer, 6, 0xEE,&findOffset2);
+
+    printf("Search for 0x58 (Exists) : %d\n", findOffset1);
+    printf("Search for 0xEE (Missing): %d\n", findOffset2);
+    printf("=========================================================\n\n");
+
+
 
 
 
