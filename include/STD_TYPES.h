@@ -17,8 +17,7 @@ typedef int8_t    sint8;
 typedef int16_t   sint16;
 typedef int32_t   sint32;
 
-/* A1: Optimized Boolean type
-   Size: 1 byte (8 bits) instead of 4 bytes */
+/* A1: Optimized Boolean type*/
 typedef uint8 boolean;
 
 enum {

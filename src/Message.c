@@ -4,6 +4,8 @@
 #include "Message.h"
 #include "STD_TYPES.h"
 #include <stddef.h>
+#include <stdio.h>
+
 #include "BIT_MATH.h"
 
 
@@ -94,3 +96,6 @@ Std_ReturnType Msg_Decode(P_void InBuffer, Message_t *OutMsg) {
 
     return E_OK;
 }
+// Std_ReturnType assert_size() {
+//     printf("the size of the message struct %zu\n", sizeof(Message_t));
+// }

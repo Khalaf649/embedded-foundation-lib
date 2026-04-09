@@ -78,7 +78,7 @@ Std_ReturnType MemScan_Compare(P_void BaseAddr1, P_void BaseAddr2, uint32 Size, 
 
     for (uint32 i = 0; i < Size; i++) {
         if (p1[i] != p2[i]) {
-            *(OutOffset) = i + 1;
+            *(OutOffset) = i + 1; // 1-based
             return E_OK;
         }
     }
