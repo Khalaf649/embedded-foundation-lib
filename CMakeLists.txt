@@ -27,6 +27,9 @@ add_executable(${PROJECT_NAME} ${SOURCES}
         include/Keypad.h
         include/Keypad_private.h
         src/Keypad.c
+        include/SevenSeg.h
+        include/SevenSeg_private.h
+        src/SevenSeg.c
 )
 
 # Optional: Add compiler flags to catch common embedded mistakes
