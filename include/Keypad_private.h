@@ -4,7 +4,7 @@
 
 #ifndef KEYPAD_PRIVATE_H
 #define KEYPAD_PRIVATE_H
-# include "keypad.h"
+#include "keypad.h"
 #include "STD_TYPES.h"
 
 static const uint8 Keypad_Map[KEYPAD_ROWS][KEYPAD_COLS] = {

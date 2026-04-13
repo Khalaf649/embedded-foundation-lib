@@ -23,9 +23,10 @@ add_executable(${PROJECT_NAME} ${SOURCES}
         src/Message.c
         include/Gpio.h
         src/Gpio.c
-        src/GPIO_private.c
+        include/GPIO_private.h
         include/Keypad.h
-        src/Keypad_private.c
+        include/Keypad_private.h
+        src/Keypad.c
 )
 
 # Optional: Add compiler flags to catch common embedded mistakes

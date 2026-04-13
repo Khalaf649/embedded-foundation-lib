@@ -49,8 +49,8 @@ typedef enum {
 } GPIO_Speed_t;
 
 typedef enum {
-    GPIO_OTYPE_PP = 0x00,
-    GPIO_OTYPE_OD = 0x01
+    GPIO_OTYPE_PP = 0x00, // push-pull
+    GPIO_OTYPE_OD = 0x01  // open-drain
 } GPIO_OType_t;
 
 typedef enum {

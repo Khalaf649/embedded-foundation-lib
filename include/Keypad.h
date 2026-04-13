@@ -5,17 +5,18 @@
 #ifndef KEYPAD_H
 #define KEYPAD_H
 #include "GPIO.h"
-#define KEYPAD_ROWS    4
-#define KEYPAD_COLS    4
+#define KEYPAD_ROWS  4
+#define KEYPAD_COLS  4
 
 typedef struct {
     GPIO_Pin_Location_t row_pins[KEYPAD_ROWS];
     GPIO_Pin_Location_t col_pins[KEYPAD_COLS];
 } Keypad_Config_t;
 
-void Keypad_Init(const Keypad_Config_t* config);
-uint8_t Keypad_GetPressedKey(void);
+typedef Keypad_Config_t* Keypad_Config_Handle_t;
+typedef uint8_t* Keypad_Data_Handle_t;
 
-
+void Keypad_Init(const Keypad_Config_Handle_t config_h);
+boolean Keypad_GetPressedKey(const Keypad_Config_Handle_t config_h, Keypad_Data_Handle_t key_h);
 
 #endif //KEYPAD_H
