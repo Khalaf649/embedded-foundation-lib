@@ -96,6 +96,6 @@ Std_ReturnType Msg_Decode(P_void InBuffer, Message_t *OutMsg) {
 
     return E_OK;
 }
-// Std_ReturnType assert_size() {
-//     printf("the size of the message struct %zu\n", sizeof(Message_t));
-// }
+Std_ReturnType assert_size() {
+    printf("the size of the message struct %zu\n", sizeof(Message_t));
+}

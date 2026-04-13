@@ -38,6 +38,6 @@ Std_ReturnType PreProcess_SensorReading(uint16 Temperature, uint16 Humidity, Pay
 Std_ReturnType PreProcess_DeviceCommand(uint8 CommandID, uint8 Parameter, Payload_t *OutPayload);
 Std_ReturnType Msg_RegisterHandler(uint8 MsgType, MsgHandler_t Handler);
 Std_ReturnType Msg_Decode(P_void InBuffer, Message_t *OutMsg);
-//Std_ReturnType assert_size();
+// Std_ReturnType assert_size();
 
 #endif //EMBEDDED_PROJECT1_MESSAGE_H
