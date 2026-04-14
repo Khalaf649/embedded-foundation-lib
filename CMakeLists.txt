@@ -33,6 +33,8 @@ add_executable(${PROJECT_NAME} ${SOURCES}
         include/RCC_private.h
         include/RCC.h
         src/RCC.c
+        include/LedBar.h
+        src/Ledbar.c
 )
 
 # Optional: Add compiler flags to catch common embedded mistakes
