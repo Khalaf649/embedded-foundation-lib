@@ -13,12 +13,12 @@ void Keypad_Init(const Keypad_Config_Handle_t config_h) {
     /* Cols: Input, Pull-Up */
     GPIO_PrepareConfig(&col_cfg, GPIO_MODE_INPUT, GPIO_PULL_UP, GPIO_SPEED_LOW, GPIO_OTYPE_PP);
 
-    for (uint8_t i = 0; i < KEYPAD_ROWS; i++) {
+    for (uint8 i = 0; i < KEYPAD_ROWS; i++) {
         GPIO_InitPin(&(config_h->row_pins[i]), &row_cfg);
         GPIO_WritePin(&(config_h->row_pins[i]), GPIO_HIGH);
     }
 
-    for (uint8_t i = 0; i < KEYPAD_COLS; i++) {
+    for (uint8 i = 0; i < KEYPAD_COLS; i++) {
         GPIO_InitPin(&(config_h->col_pins[i]), &col_cfg);
     }
 }
@@ -59,4 +59,22 @@ boolean Keypad_GetPressedKey(const Keypad_Config_Handle_t config_h, Keypad_Data_
     }
 
     return isPressed;
+}
+
+void Keypad_PrepareConfig(P_void config_out, GPIO_Pin_Location_t rows[KEYPAD_ROWS], GPIO_Pin_Location_t cols[KEYPAD_ROWS]) {
+
+    if (config_out == NULL) return;
+
+    Keypad_Config_t* config = (Keypad_Config_t*)config_out;
+
+    /* Copy row configurations */
+    for (uint8 i = 0; i < KEYPAD_ROWS; i++) {
+        config->row_pins[i]=rows[i];
+    }
+
+    /* Copy column configurations */
+    for (uint8 i = 0; i < KEYPAD_COLS; i++) {
+        config->col_pins[i]=cols[i];
+
+    }
 }

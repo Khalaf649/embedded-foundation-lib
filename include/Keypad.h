@@ -18,5 +18,6 @@ typedef uint8_t* Keypad_Data_Handle_t;
 
 void Keypad_Init(const Keypad_Config_Handle_t config_h);
 boolean Keypad_GetPressedKey(const Keypad_Config_Handle_t config_h, Keypad_Data_Handle_t key_h);
+void Keypad_PrepareConfig(P_void config_out, GPIO_Pin_Location_t rows[KEYPAD_ROWS], GPIO_Pin_Location_t cols[KEYPAD_ROWS]);
 
 #endif //KEYPAD_H

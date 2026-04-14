@@ -12,7 +12,7 @@ void GPIO_InitPin(const GPIO_Pin_Handle_t pin_h, const GPIO_Config_Handle_t conf
     /* 1. Get the base address of the port */
     GPIO_RegDef_t* GPIOx = GPIO_PORT_LOOKUP[pin_h->port];
     uint8_t pin = pin_h->pin_number;
-     /* 2. Enable Clock for the Port (Integrated for now) */
+     /* 2. Enable Clock for the Port*/
     uint8 PeripheralId = (RCC_AHB1_BUS * 32) + (uint8)pin_h->port;
     RCC_EnablePeripheral(PeripheralId);
 
