@@ -5,18 +5,16 @@
 #include "GPIO.h"
 #include "GPIO_private.h"
 #include "BIT_MATH.h"
+#include "RCC.h"
 void GPIO_InitPin(const GPIO_Pin_Handle_t pin_h, const GPIO_Config_Handle_t config_h) {
     if (pin_h == NULL || config_h == NULL) return;
 
     /* 1. Get the base address of the port */
     GPIO_RegDef_t* GPIOx = GPIO_PORT_LOOKUP[pin_h->port];
     uint8_t pin = pin_h->pin_number;
-
-    // /* 2. Enable Clock for the Port (Integrated for now) */
-    // SET_BIT(RCC->AHB1ENR, pin_h->port);
-    //
-    // /* Small stabilization delay - essential for hardware synchronization */
-    // volatile uint32_t delay = RCC->AHB1ENR;
+     /* 2. Enable Clock for the Port (Integrated for now) */
+    uint8 PeripheralId = (RCC_AHB1_BUS * 32) + (uint8)pin_h->port;
+    RCC_EnablePeripheral(PeripheralId);
 
     /* 3. Configure Mode (2 bits per pin) */
     WRITE_BIT_FIELD(GPIOx->MODER, 0x03, pin, 2, config_h->mode);

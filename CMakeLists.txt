@@ -30,6 +30,9 @@ add_executable(${PROJECT_NAME} ${SOURCES}
         include/SevenSeg.h
         include/SevenSeg_private.h
         src/SevenSeg.c
+        include/RCC_private.h
+        include/RCC.h
+        src/RCC.c
 )
 
 # Optional: Add compiler flags to catch common embedded mistakes

@@ -4,15 +4,15 @@
 /* --- GPIO Register Mapping Struct --- */
 #include "STD_TYPES.h"
 typedef struct {
-    volatile uint32 MODER;    /* Mode register */
-    volatile uint32 OTYPER;   /* Output type register */
-    volatile uint32 OSPEEDR;  /* Output speed register */
-    volatile uint32 PUPDR;    /* Pull-up/pull-down register */
-    volatile uint32 IDR;      /* Input data register */
-    volatile uint32 ODR;      /* Output data register */
-    volatile uint32 BSRR;     /* Bit set/reset register */
-    volatile uint32 LCKR;     /* Configuration lock register */
-    volatile uint32 AFR[2];   /* Alternate function low/high */
+    volatile uint32 MODER;    /* Mode register */ // 0x00
+    volatile uint32 OTYPER;   /* Output type register */  //0x04
+    volatile uint32 OSPEEDR;  /* Output speed register */ // 0x08
+    volatile uint32 PUPDR;    /* Pull-up/pull-down register */ //0x0c
+    volatile uint32 IDR;      /* Input data register */  //0x10
+    volatile uint32 ODR;      /* Output data register */ //0x014
+    volatile uint32 BSRR;     /* Bit set/reset register */ //0x18
+    volatile uint32 LCKR;     /* Configuration lock register */ //0x1c
+    volatile uint32 AFR[2];   /* Alternate function low/high */ //0x20-0x24
 } GPIO_RegDef_t;
 
 /* --- GPIO Base Addresses --- */
