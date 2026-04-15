@@ -1,16 +1,14 @@
-/*
- * main.c
- *
- *  Created on: Feb 18, 2025
- *  Author    : AbdullahDarwish
- */
 
 
-int main() {
+#include<stdio.h>
 
-    while(1) {
 
+
+int main(void) {
+    while (1) {
+        // Main loop
     }
+
 
     return 0;
 }
