@@ -6,27 +6,33 @@
 #include "GPIO_private.h"
 #include "BIT_MATH.h"
 #include "RCC.h"
+#include <stddef.h>
+static GPIO_RegDef_t* const GPIO_PORT_LOOKUP[] = {
+    GPIOA, GPIOB, GPIOC, GPIOD, GPIOE
+};
 void GPIO_InitPin(const GPIO_Pin_Handle_t pin_h, const GPIO_Config_Handle_t config_h) {
     if (pin_h == NULL || config_h == NULL) return;
 
-    /* 1. Get the base address of the port */
-    GPIO_RegDef_t* GPIOx = GPIO_PORT_LOOKUP[pin_h->port];
-    uint8_t pin = pin_h->pin_number;
-     /* 2. Enable Clock for the Port*/
+    /* 1. Enable the Clock for this specific port first! */
+    /* Port A = 0, B = 1, C = 2... this matches AHB1ENR bits 0, 1, 2... */
     uint8 PeripheralId = (RCC_AHB1_BUS * 32) + (uint8)pin_h->port;
+    /* 2. Enable the clock using your updated RCC API */
     RCC_EnablePeripheral(PeripheralId);
 
-    /* 3. Configure Mode (2 bits per pin) */
-    WRITE_BIT_FIELD(GPIOx->MODER, 0x03, pin, 2, config_h->mode);
+    GPIO_RegDef_t* GPIOx = GPIO_PORT_LOOKUP[pin_h->port];
+    uint8 pin = pin_h->pin_number;
+
+    /* 2. Configure Mode (2 bits per pin) */
+    WRITE_BIT_FIELD(GPIOx->MODER, 0x3U, pin, 2, config_h->mode);
+
+    /* 3. Configure Output Type (1 bit per pin) */
+    WRITE_BIT_FIELD(GPIOx->OTYPER, 0x1U, pin, 1, config_h->otype);
 
     /* 4. Configure Pull-up/down (2 bits per pin) */
-    WRITE_BIT_FIELD(GPIOx->PUPDR, 0x03, pin, 2, config_h->pull);
+    WRITE_BIT_FIELD(GPIOx->PUPDR, 0x3U, pin, 2, config_h->pull);
 
-    /* 5. Configure Output Type (1 bit per pin) */
-    WRITE_BIT_FIELD(GPIOx->OTYPER, 0x01, pin, 1, config_h->otype);
-
-    /* 6. Configure Output Speed (2 bits per pin) */
-    WRITE_BIT_FIELD(GPIOx->OSPEEDR, 0x03, pin, 2, config_h->speed);
+    /* 5. Configure Speed (2 bits per pin) */
+    WRITE_BIT_FIELD(GPIOx->OSPEEDR, 0x3U, pin, 2, config_h->speed);
 }
 void GPIO_PrepareConfig(P_void config_out, GPIO_Mode_t mode, GPIO_Pull_t pull, GPIO_Speed_t speed, GPIO_OType_t otype) {
     if (config_out == NULL) return;

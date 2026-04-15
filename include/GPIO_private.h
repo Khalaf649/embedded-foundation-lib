@@ -28,6 +28,3 @@ typedef struct {
 #define GPIOD    ((GPIO_RegDef_t *)GPIOD_BASE_ADDR)
 #define GPIOE    ((GPIO_RegDef_t *)GPIOE_BASE_ADDR)
 
-static GPIO_RegDef_t* const GPIO_PORT_LOOKUP[] = {
-    GPIOA, GPIOB, GPIOC, GPIOD, GPIOE
-};

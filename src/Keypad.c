@@ -3,6 +3,8 @@
 //
 #include "Keypad.h"
 #include "Keypad_private.h"
+#include <stddef.h>
+
 void Keypad_Init(const Keypad_Config_Handle_t config_h) {
     if (config_h == NULL) return;
 

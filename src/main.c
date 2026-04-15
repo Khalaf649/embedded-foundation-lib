@@ -1,14 +1,10 @@
 
+#include "System.h"          // contains myKeypad and myDisplay
 
-#include<stdio.h>
+int main(void)
+{
+    /* 1. Initialize everything (keypad, 7seg, LEDs, clocks, etc.) */
+    System_InitAll();
+    while (1);
 
-
-
-int main(void) {
-    while (1) {
-        // Main loop
-    }
-
-
-    return 0;
 }

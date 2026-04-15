@@ -10,10 +10,10 @@
 /* --- Port Definitions --- */
 typedef enum {
     GPIO_PORT_A = 0,
-    GPIO_PORT_B,
-    GPIO_PORT_C,
-    GPIO_PORT_D,
-    GPIO_PORT_E
+    GPIO_PORT_B =1,
+    GPIO_PORT_C =2,
+    GPIO_PORT_D =3,
+    GPIO_PORT_E = 4
 } GPIO_Port_t;
 
 /* --- Pin ID Definitions --- */
@@ -26,11 +26,11 @@ typedef enum {
 
 /* --- Pin Configuration Enums --- */
 typedef enum {
-    GPIO_MODE_OUTPUT = 0x00,
-    GPIO_MODE_INPUT  = 0x01,
+    GPIO_MODE_INPUT  = 0x00,
+    GPIO_MODE_OUTPUT = 0x01,
     GPIO_MODE_AF     = 0x02,
     GPIO_MODE_ANALOG = 0x03,
-    GPIO_MODE_IT_RISING,   /* Trigger for Emergency Reset / Door Bell */
+    GPIO_MODE_IT_RISING,   // these can stay (they are > 3 so you will need extra EXTI code later)
     GPIO_MODE_IT_FALLING,
     GPIO_MODE_IT_BOTH
 } GPIO_Mode_t;

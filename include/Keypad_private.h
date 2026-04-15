@@ -8,10 +8,10 @@
 #include "STD_TYPES.h"
 
 static const uint8 Keypad_Map[KEYPAD_ROWS][KEYPAD_COLS] = {
-    {'1', '2', '3', 'A'},
-    {'4', '5', '6', 'B'},
-    {'7', '8', '9', 'C'},
-    {'*', '0', '#', 'D'}
+    {'7', '8', '9', '/'},
+    {'4', '5', '6', '*'},
+    {'1', '2', '3', '-'},
+    {'*', '0', '=', '+'}
 };
 
 #endif //KEYPAD_PRIVATE_H

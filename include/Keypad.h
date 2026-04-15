@@ -5,6 +5,7 @@
 #ifndef KEYPAD_H
 #define KEYPAD_H
 #include "GPIO.h"
+#include "STD_TYPES.h"
 #define KEYPAD_ROWS  4
 #define KEYPAD_COLS  4
 
@@ -14,7 +15,7 @@ typedef struct {
 } Keypad_Config_t;
 
 typedef Keypad_Config_t* Keypad_Config_Handle_t;
-typedef uint8_t* Keypad_Data_Handle_t;
+typedef uint8* Keypad_Data_Handle_t;
 
 void Keypad_Init(const Keypad_Config_Handle_t config_h);
 boolean Keypad_GetPressedKey(const Keypad_Config_Handle_t config_h, Keypad_Data_Handle_t key_h);

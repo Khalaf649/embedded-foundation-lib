@@ -1,4 +1,4 @@
-file(GLOB_RECURSE SRC_FILES  ${PROJECT_PATH}/*.c)
+file(GLOB_RECURSE SRC_FILES "${PROJECT_PATH}/*.c")
 
 if (NOT USE_HAL)
     list(FILTER SRC_FILES EXCLUDE REGEX ".*/(.*(build|STM32-base).*)/.*")
