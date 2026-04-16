@@ -24,7 +24,11 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         src/System.c
         src/exti.c
         include/exti.h
-        include/exti_private.h)
+        include/exti_private.h
+        include/app.h
+        src/app.c
+        include/Buzzer.h
+        src/Buzzer.c)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols

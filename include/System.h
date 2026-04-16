@@ -7,11 +7,13 @@
 #include "Keypad.h"
 #include "SevenSeg.h"
 #include "LedBar.h"
+#include "Buzzer.h"
 
 /* Expose the global handles so your state machine can use them later */
 extern Keypad_Config_t   myKeypad;
 extern SevenSeg_Config_t myDisplay;
 extern LedBar_Config_t   myFeedback;
+extern Buzzer_Config_t   myBuzzer;
 /* Keypad (PA0-PA3 = Rows, PB0-PB3 = Columns) */
 static GPIO_Pin_Location_t KP_Rows[4] = {
     {GPIO_PORT_A, GPIO_PIN_0}, {GPIO_PORT_A, GPIO_PIN_1},
@@ -39,6 +41,7 @@ static GPIO_Pin_Location_t Progress_Pins[4] = {
 };
 static GPIO_Pin_Location_t Success_Pin = {GPIO_PORT_D, GPIO_PIN_4};
 static GPIO_Pin_Location_t Alarm_Pin   = {GPIO_PORT_D, GPIO_PIN_5};
+static GPIO_Pin_Location_t Buzzer_Pin  = {GPIO_PORT_D, GPIO_PIN_6};
 /* Master Initialization API */
 void System_InitAll(void);
 
