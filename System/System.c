@@ -6,6 +6,8 @@
 //
 
 #include "System.h"
+
+#include "../Utils/Utils.h"
 #include "../RCC/RCC.h"
 
 /* Global Component Handles (Allocated in memory here) */
@@ -17,6 +19,8 @@ Buzzer_Config_t   myBuzzer;
 
 void System_InitAll(void) {
     Rcc_Init();
+     SysTick_Init();
+
 
      /* 1. Prepare the Software Configurations */
       Keypad_PrepareConfig(&myKeypad, KP_Rows, KP_Cols);

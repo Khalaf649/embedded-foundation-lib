@@ -28,7 +28,9 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         app/app.h
         app/app.c
         Buzzer/Buzzer.h
-        Buzzer/Buzzer.c)
+        Buzzer/Buzzer.c
+        Utils/Utils.c
+        Utils/Utils.h)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols
