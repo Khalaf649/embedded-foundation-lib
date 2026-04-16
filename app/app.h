@@ -23,7 +23,7 @@ typedef enum {
 #define EXTI_PORT_DOORBELL   EXTI_PORT_B
 
 // Emergency Reset EXTI Mapping (Adjust line/port to match your wiring)
-#define EXTI_LINE_EMERGENCY  EXTI_LINE_12
+#define EXTI_LINE_EMERGENCY  EXTI_LINE_4
 #define EXTI_PORT_EMERGENCY  EXTI_PORT_B
 
 
