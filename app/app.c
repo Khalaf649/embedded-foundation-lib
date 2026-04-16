@@ -18,6 +18,7 @@
 static SystemState_t currentState = STATE_LOCKED;
 static const uint8 correctPassword[APP_PASSWORD_LENGTH] = APP_DEFAULT_PASSWORD;
 
+static uint8 enteredPassword[APP_PASSWORD_LENGTH];  // NEW: Buffer to store the full entered sequence
 static uint8 inputIndex = 0;     // Tracks progress of the sequence
 static uint8 failedAttempts = 0; // Tracks failed unlock attempts
 
@@ -38,37 +39,54 @@ void App_EmergencyResetCallback(void) {
 void App_DoorbellCallback(void) {
     flag_Doorbell = TRUE;
 }
+
 static void App_HandleLockedState(boolean isKeyPressed, uint8 key) {
     // Input Event: Any keypad press detected that is NOT the lock command
     if (isKeyPressed == TRUE && key != APP_LOCK_COMMAND_KEY) {
 
-        // Event: Valid Sequence Input Detected
-        if (key == correctPassword[inputIndex]) {
+        // NEW LOGIC:
+        // 1. Store EVERY entered key (correct or wrong) in the buffer
+        // 2. Always increase progress LED for every character entered
+        if (inputIndex < APP_PASSWORD_LENGTH) {
+            enteredPassword[inputIndex] = key;
             inputIndex++;
             LedBar_SetProgress(&myFeedback, inputIndex);
+        }
 
-            // Condition Check: Is the Sequence Complete?
-            if (inputIndex >= APP_PASSWORD_LENGTH) {
-                inputIndex = 0;
+        // Condition Check: Is the Sequence Complete?
+        // → Only NOW do we compare the full password and decide success/failure
+        if (inputIndex >= APP_PASSWORD_LENGTH) {
+            // Compare the entire entered sequence against the correct password
+            boolean isCorrect = TRUE;
+            for (uint8 i = 0; i < APP_PASSWORD_LENGTH; i++) {
+                if (enteredPassword[i] != correctPassword[i]) {
+                    isCorrect = FALSE;
+                    break;
+                }
+            }
+
+            // Reset input progress (applies to both success and failure)
+            inputIndex = 0;
+            LedBar_SetProgress(&myFeedback, 0);
+
+            if (isCorrect) {
+                // SUCCESS: Password was fully correct
                 failedAttempts = 0;
                 SevenSeg_WriteDigit(&myDisplay, failedAttempts);
                 LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_SUCCESS);
                 currentState = STATE_UNLOCKED;
             }
-        }
+            else {
+                // FAILURE: Full password was entered but incorrect
+                failedAttempts++;
+                SevenSeg_WriteDigit(&myDisplay, failedAttempts);
 
-        // Event: Invalid Sequence Input Detected
-        else {
-            inputIndex = 0;
-            LedBar_SetProgress(&myFeedback, 0);
-
-            failedAttempts++;
-            SevenSeg_WriteDigit(&myDisplay, failedAttempts);
-
-            // Condition Check: Lockout Threshold Reached?
-            if (failedAttempts >= APP_MAX_FAILED_ATTEMPTS) {
-                LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_ALARM);
-                currentState = STATE_ALARM;
+                // Condition Check: Lockout Threshold Reached?
+                if (failedAttempts >= APP_MAX_FAILED_ATTEMPTS) {
+                    LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_ALARM);
+                    currentState = STATE_ALARM;
+                }
+                // else: stay in LOCKED, user can try again (progress already reset)
             }
         }
     }
@@ -103,24 +121,26 @@ static void App_HandleAlarmState(void) {
 void App_Init(void) {
     // 1. Initialize all physical hardware via HAL drivers
     System_InitAll();
-    //
-    // // 2. Register EXTI callbacks and enable lines
-    // // Using EXTI_EDGE_FALLING assuming your buttons pull to GND when pressed.
+
+    // 2. Register EXTI callbacks and enable lines
+    // Using EXTI_EDGE_FALLING assuming your buttons pull to GND when pressed.
     Exti_Init(EXTI_LINE_DOORBELL, EXTI_PORT_DOORBELL, EXTI_EDGE_BOTH, App_DoorbellCallback);
     Exti_Enable(EXTI_LINE_DOORBELL);
 
     Exti_Init(EXTI_LINE_EMERGENCY, EXTI_PORT_EMERGENCY, EXTI_EDGE_RISING, App_EmergencyResetCallback);
     Exti_Enable(EXTI_LINE_EMERGENCY);
 
-    // // 3. Set Initial System State [cite: 19]
+    // 3. Set Initial System State [cite: 19]
     currentState = STATE_LOCKED;
     inputIndex = 0;
     failedAttempts = 0;
+    // enteredPassword buffer is statically zero-initialized and will be overwritten on first use
 
-    // // 4. Reset UI to match initial state
+    // 4. Reset UI to match initial state
     SevenSeg_WriteDigit(&myDisplay, failedAttempts);     // Display 0 failures
-     LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_IDLE);   // Turn off Success/Alarm LEDs
+    LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_IDLE);   // Turn off Success/Alarm LEDs
 }
+
 void App_Run(void) {
     // 1. Read Current Input from the Keypad
     uint8 key = 0;
