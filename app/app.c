@@ -6,12 +6,11 @@
 //
 
 #include "app.h"
-#include "System.h"
-#include "Keypad.h"
-#include "SevenSeg.h"
-#include "LedBar.h"
-#include "exti.h"
-#include "GPIO.h" // Needed to manually toggle the doorbell pin
+#include "../System/System.h"
+#include "../Keypad/Keypad.h"
+#include "../SevenSeg/SevenSeg.h"
+#include "../LedBar/LedBar.h"
+#include "../exti/exti.h"
 
 
 

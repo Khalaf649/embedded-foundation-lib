@@ -4,7 +4,7 @@
 
 #ifndef EXTI_PRIVATE_H
 #define EXTI_PRIVATE_H
-#include "Std_Types.h"
+#include "../include/Std_Types.h"
 
 /* EXTI Register Map */
 typedef struct {

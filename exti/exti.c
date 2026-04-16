@@ -7,7 +7,7 @@
 
 #include "exti.h"
 #include "exti_private.h"
-#include "BIT_MATH.h"
+#include "../include/BIT_MATH.h"
 #include <stddef.h>
 
 // Array to hold user callback functions for each EXTI line

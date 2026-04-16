@@ -5,8 +5,8 @@
 #ifndef BUZZER_H
 #define BUZZER_H
 
-#include "STD_TYPES.h"
-#include "GPIO.h"
+#include "../include/STD_TYPES.h"
+#include "../GPIO/GPIO.h"
 
 /* --- Configuration Structure --- */
 typedef struct {

@@ -5,7 +5,7 @@
 #include "GPIO.h"
 #include "GPIO_private.h"
 #include "BIT_MATH.h"
-#include "RCC.h"
+#include "../RCC/RCC.h"
 #include <stddef.h>
 static GPIO_RegDef_t* const GPIO_PORT_LOOKUP[] = {
     GPIOA, GPIOB, GPIOC, GPIOD, GPIOE

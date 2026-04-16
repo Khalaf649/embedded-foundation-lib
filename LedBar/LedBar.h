@@ -5,7 +5,7 @@
 #ifndef LEDBAR_H
 #define LEDBAR_H
 #include "STD_TYPES.h"
-#include "GPIO.h"
+#include "../GPIO/GPIO.h"
 #define MAX_PROGRESS_LEDS  4
 typedef enum {
     LEDBAR_STATUS_IDLE = 0,  /* Both LEDs OFF (Locked, normal state) */

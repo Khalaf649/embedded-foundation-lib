@@ -4,7 +4,7 @@
 
 #ifndef APP_H
 #define APP_H
-#include "exti.h"
+#include "../exti/exti.h"
 
 typedef enum {
     STATE_LOCKED,    // Initial State

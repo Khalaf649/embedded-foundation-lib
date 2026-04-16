@@ -3,6 +3,7 @@
 //
 #include "LedBar.h"
 #include <stddef.h>
+#include "../GPIO/GPIO.h"
 
 void LedBar_PrepareConfig(P_void config_out, GPIO_Pin_Location_t progress[MAX_PROGRESS_LEDS], GPIO_Pin_Location_t success, GPIO_Pin_Location_t alarm) {
     if (config_out == NULL) {

@@ -5,7 +5,7 @@
 #ifndef SEVENSEG_H
 #define SEVENSEG_H
 #define SEVENSEG_PIN_COUNT  7
-#include "GPIO.h"
+#include "../GPIO/GPIO.h"
 
 typedef enum {
     SEVENSEG_COMMON_CATHODE = 0,

@@ -4,10 +4,10 @@
 
 #ifndef SYSTEM_H
 #define SYSTEM_H
-#include "Keypad.h"
-#include "SevenSeg.h"
-#include "LedBar.h"
-#include "Buzzer.h"
+#include "../Keypad/Keypad.h"
+#include "../SevenSeg/SevenSeg.h"
+#include "../LedBar/LedBar.h"
+#include "../Buzzer/Buzzer.h"
 
 /* Expose the global handles so your state machine can use them later */
 extern Keypad_Config_t   myKeypad;

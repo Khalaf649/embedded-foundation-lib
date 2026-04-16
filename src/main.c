@@ -1,6 +1,6 @@
 
-#include "app.h"
-#include "System.h"
+#include "../app/app.h"
+#include "../System/System.h"
 // contains myKeypad and myDisplay
 
 int main(void)

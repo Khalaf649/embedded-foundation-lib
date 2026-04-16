@@ -3,6 +3,7 @@
 //
 #include "SevenSeg.h"
 #include "SevenSeg_private.h"
+#include "../GPIO/GPIO.h"
 #include <stddef.h>
 
 void SevenSeg_WriteDigit(const SevenSeg_Config_Handle_t config_h, uint8 digit) {

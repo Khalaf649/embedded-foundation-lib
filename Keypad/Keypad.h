@@ -4,7 +4,7 @@
 
 #ifndef KEYPAD_H
 #define KEYPAD_H
-#include "GPIO.h"
+#include "../GPIO/GPIO.h"
 #include "STD_TYPES.h"
 #define KEYPAD_ROWS  4
 #define KEYPAD_COLS  4

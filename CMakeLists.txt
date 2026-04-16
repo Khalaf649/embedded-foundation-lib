@@ -20,15 +20,15 @@ set(EXECUTABLE                           ${CMAKE_PROJECT_NAME})
 
 # Executable files
 add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}/${MAPPED_DEVICE}.s
-        include/System.h
-        src/System.c
-        src/exti.c
-        include/exti.h
-        include/exti_private.h
-        include/app.h
-        src/app.c
-        include/Buzzer.h
-        src/Buzzer.c)
+        System/System.h
+        System/System.c
+        exti/exti.c
+        exti/exti.h
+        exti/exti_private.h
+        app/app.h
+        app/app.c
+        Buzzer/Buzzer.h
+        Buzzer/Buzzer.c)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols
