@@ -69,7 +69,7 @@ void LedBar_SetStatus(const LedBar_Config_Handle_t config_h, LedBar_Status_t sta
         case LEDBAR_STATUS_SUCCESS:
             GPIO_WritePin(&(config_h->success_pin), GPIO_HIGH);
             GPIO_WritePin(&(config_h->alarm_pin), GPIO_LOW);
-            LedBar_SetProgress(config_h, MAX_PROGRESS_LEDS);
+            LedBar_SetProgress(config_h, 0);
             break;
 
         case LEDBAR_STATUS_ALARM:

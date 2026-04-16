@@ -39,6 +39,67 @@ void App_EmergencyResetCallback(void) {
 void App_DoorbellCallback(void) {
     flag_Doorbell = TRUE;
 }
+static void App_HandleLockedState(boolean isKeyPressed, uint8 key) {
+    // Input Event: Any keypad press detected that is NOT the lock command
+    if (isKeyPressed == TRUE && key != APP_LOCK_COMMAND_KEY) {
+
+        // Event: Valid Sequence Input Detected
+        if (key == correctPassword[inputIndex]) {
+            inputIndex++;
+            LedBar_SetProgress(&myFeedback, inputIndex);
+
+            // Condition Check: Is the Sequence Complete?
+            if (inputIndex >= APP_PASSWORD_LENGTH) {
+                inputIndex = 0;
+                failedAttempts = 0;
+                SevenSeg_WriteDigit(&myDisplay, failedAttempts);
+                LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_SUCCESS);
+                currentState = STATE_UNLOCKED;
+            }
+        }
+
+        // Event: Invalid Sequence Input Detected
+        else {
+            inputIndex = 0;
+            LedBar_SetProgress(&myFeedback, 0);
+
+            failedAttempts++;
+            SevenSeg_WriteDigit(&myDisplay, failedAttempts);
+
+            // Condition Check: Lockout Threshold Reached?
+            if (failedAttempts >= APP_MAX_FAILED_ATTEMPTS) {
+                LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_ALARM);
+                currentState = STATE_ALARM;
+            }
+        }
+    }
+}
+
+static void App_HandleUnlockedState(boolean isKeyPressed, uint8 key) {
+    // Event: Lock Command Triggered
+    if (isKeyPressed == TRUE && key == APP_LOCK_COMMAND_KEY) {
+        LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_IDLE);
+        currentState = STATE_LOCKED;
+    }
+}
+
+static void App_HandleAlarmState(void) {
+    // Event: Emergency Reset Triggered via EXTI
+    if (flag_EmergencyReset) {
+        flag_EmergencyReset = 0; // Acknowledge and clear flag
+
+        // Clear alarm, clear progress, reset history
+        LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_IDLE);
+
+        inputIndex = 0;
+        LedBar_SetProgress(&myFeedback, 0);
+
+        failedAttempts = 0;
+        SevenSeg_WriteDigit(&myDisplay, failedAttempts);
+
+        currentState = STATE_LOCKED;
+    }
+}
 
 void App_Init(void) {
     // 1. Initialize all physical hardware via HAL drivers
@@ -46,10 +107,10 @@ void App_Init(void) {
     //
     // // 2. Register EXTI callbacks and enable lines
     // // Using EXTI_EDGE_FALLING assuming your buttons pull to GND when pressed.
-    Exti_Init(EXTI_LINE_DOORBELL, EXTI_PORT_DOORBELL, EXTI_EDGE_FALLING, App_DoorbellCallback);
+    Exti_Init(EXTI_LINE_DOORBELL, EXTI_PORT_DOORBELL, EXTI_EDGE_BOTH, App_DoorbellCallback);
     Exti_Enable(EXTI_LINE_DOORBELL);
 
-    Exti_Init(EXTI_LINE_EMERGENCY, EXTI_PORT_EMERGENCY, EXTI_EDGE_FALLING, App_EmergencyResetCallback);
+    Exti_Init(EXTI_LINE_EMERGENCY, EXTI_PORT_EMERGENCY, EXTI_EDGE_RISING, App_EmergencyResetCallback);
     Exti_Enable(EXTI_LINE_EMERGENCY);
 
     // // 3. Set Initial System State [cite: 19]
@@ -62,5 +123,31 @@ void App_Init(void) {
      LedBar_SetStatus(&myFeedback, LEDBAR_STATUS_IDLE);   // Turn off Success/Alarm LEDs
 }
 void App_Run(void) {
+    // 1. Read Current Input from the Keypad
+    uint8 key = 0;
+    boolean isKeyPressed = Keypad_GetPressedKey(&myKeypad, &key);
 
+    // 2. GLOBAL EVENT: Doorbell works in ALL states
+    if (flag_Doorbell) {
+        flag_Doorbell = 0; // Acknowledge and clear flag
+        Buzzer_Toggle(&myBuzzer); // Pulse doorbell indicator
+    }
+    if (flag_EmergencyReset && currentState != STATE_ALARM) {
+        flag_EmergencyReset = 0;
+    }
+
+    // 3. Evaluate State Machine
+    switch (currentState) {
+        case STATE_LOCKED:
+            App_HandleLockedState(isKeyPressed, key);
+        break;
+
+        case STATE_UNLOCKED:
+            App_HandleUnlockedState(isKeyPressed, key);
+        break;
+
+        case STATE_ALARM:
+            App_HandleAlarmState();
+        break;
+    }
 }

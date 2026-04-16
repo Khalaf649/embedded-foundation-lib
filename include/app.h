@@ -16,7 +16,7 @@ typedef enum {
 #define APP_DEFAULT_PASSWORD      {'1', '8', '1', '2'}
 
 // Changed from '#' to 'C' to match your specific keypad's ON/C button
-#define APP_LOCK_COMMAND_KEY      'C'
+#define APP_LOCK_COMMAND_KEY      '+'
 
 // Doorbell EXTI Mapping
 #define EXTI_LINE_DOORBELL   EXTI_LINE_13
