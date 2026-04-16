@@ -21,7 +21,10 @@ set(EXECUTABLE                           ${CMAKE_PROJECT_NAME})
 # Executable files
 add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}/${MAPPED_DEVICE}.s
         include/System.h
-        src/System.c)
+        src/System.c
+        src/exti.c
+        include/exti.h
+        include/exti_private.h)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols
