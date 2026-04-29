@@ -34,7 +34,15 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         Usart/Usart.h
         Usart/Usart.c
         Lcd/Lcd.c
-        Lcd/Lcd.h)
+        Lcd/Lcd.h
+        ADC/Adc.c
+        ADC/Adc.h
+        ADC/Adc_private.h
+        Nvic/Nvic.h
+        Nvic/Nvic_private.h
+        Nvic/Nvic.c
+        lm35/lm35.c
+        lm35/lm35.h)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols

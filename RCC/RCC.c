@@ -21,4 +21,6 @@ void RCC_EnablePeripheral(uint8 PeripheralId) {
 void Rcc_Init(void) {
     SET_BIT(RCC->CR, 0);
     SET_BIT(RCC->APB2ENR, 4);
+    SET_BIT(RCC->APB2ENR, 8);   // Enable ADC1 clock
+
 }

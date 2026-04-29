@@ -16,12 +16,7 @@ typedef struct {
     volatile uint32 PR;
 } Exti_RegDef_t;
 
-/* NVIC Register Map */
-typedef struct {
-    volatile uint32 ISER[8];
-    uint32 _reserved1[24];
-    volatile uint32 ICER[8];
-} Nvic_RegDef_t;
+
 
 /* SYSCFG Register Map */
 typedef struct {
@@ -33,7 +28,6 @@ typedef struct {
 } Syscfg_RegDef_t;
 
 #define EXTI          ((Exti_RegDef_t*)0x40013C00)
-#define NVIC          ((Nvic_RegDef_t*)0xE000E100)
 #define SYSCFG        ((Syscfg_RegDef_t*)0x40013800)
 
 #endif /* EXTI_PRIVATE_H_ */

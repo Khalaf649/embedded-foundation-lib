@@ -13,6 +13,10 @@
 {GPIO_PORT_D, GPIO_PIN_9}, /* Index 4: D6 */ \
 {GPIO_PORT_D, GPIO_PIN_10}  /* Index 5: D7 */ \
 }
+#define LM_CHANNEL ADC_CHANNEL_0
+#define LM_PRESCALER ADC_PRESCALER_DIV2
+#define LM_PRECISION ADC_RES_12BIT
+
 void App_Init(void);
 void App_Run(void);
 

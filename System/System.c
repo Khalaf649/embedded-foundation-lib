@@ -10,15 +10,15 @@
 #include "../RCC/RCC.h"
 #include "../Usart/Usart.h"
 #include "../Lcd/Lcd.h"
+#include "../lm35/lm35.h"
 
 Lcd_Config_t app_lcd;
-
+Adc_Config_t app_adc;
 // 2. Load the user's pin choices from App.h into the local array
 static GPIO_Pin_Location_t Lcd_Pins[6] = APP_LCD_PINS_CONFIG;
 
 void System_InitAll(void) {
     Rcc_Init();
-    Usart1_Init();
     Lcd_PrepareConfig(&app_lcd,
                   Lcd_Pins[0],  // RS
                   Lcd_Pins[1],  // EN
@@ -28,6 +28,10 @@ void System_InitAll(void) {
                   Lcd_Pins[5]); // D7
 
     Lcd_Init(&app_lcd);
+
+    Lm35_Init(0,0,0);
+
+
 
 
 
