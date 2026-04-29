@@ -43,13 +43,15 @@ void delay_ms(uint32 ms) {
 }
 void floatToStr(float val, char* data)
 {
+    // 1. Handle Negative Numbers
     if (val < 0)
     {
         *data = '-';
-        data++;
+        data++;     // Advance pointer so the '-' is safely ignored during the shift
         val *= -1;
     }
 
+    // 2. Extract digits (Your exact original logic)
     int intVal = (int)(val * 100);
     data[6] = (intVal % 10) + '0';
     intVal /= 10;
@@ -69,4 +71,26 @@ void floatToStr(float val, char* data)
     data[7] = '\r';
     data[8] = '\n';
     data[9] = '\0';
+
+    // 3. Remove Leading Zeros
+    int zerosToSkip = 0;
+
+    // Count zeros up to index 2 (so we always keep data[3], meaning "0.50" doesn't become ".50")
+    while (zerosToSkip < 3 && data[zerosToSkip] == '0')
+    {
+        zerosToSkip++;
+    }
+
+    // If we found leading zeros, shift the rest of the string to the left
+    if (zerosToSkip > 0)
+    {
+        int i = 0;
+        // Shift characters until we copy the '\0'
+        while (data[i + zerosToSkip] != '\0')
+        {
+            data[i] = data[i + zerosToSkip];
+            i++;
+        }
+        data[i] = '\0'; // Seal the string with a final null terminator
+    }
 }
