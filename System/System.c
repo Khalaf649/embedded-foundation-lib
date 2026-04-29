@@ -29,7 +29,7 @@ void System_InitAll(void) {
 
     Lcd_Init(&app_lcd);
 
-    Lm35_Init(0,0,0);
+    Lm35_Init(LM_CHANNEL,LM_PRECISION,LM_PRECISION);
 
 
 

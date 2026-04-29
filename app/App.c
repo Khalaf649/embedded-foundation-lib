@@ -13,19 +13,24 @@
 #include "../Utils/Utils.h"
 #include "../ADC/Adc.h"
 
-
-void App_Init(void) {
-    System_InitAll();
-    Usart1_Init();
-
-}
-void App_Run(void) {
-    float temp = Lm35_GetTemperature();
+void print_on_screen(float Temperature) {
     char tempStr[16]; // Enough for "-XX.XX\0"
-    floatToStr(temp, tempStr);
+    floatToStr(Temperature, tempStr);
     Usart1_TransmitString("Current Temperature: ");
     Usart1_TransmitString(tempStr);
     Usart1_TransmitString(" °C\r\n");
+    Adc_StartConversion();
+
+}
+void App_Init(void) {
+    System_InitAll();
+    Usart1_Init();
+    Lm35_GetTemperatureAsync(print_on_screen);
+
+
+}
+void App_Run(void) {
+
 
 
 

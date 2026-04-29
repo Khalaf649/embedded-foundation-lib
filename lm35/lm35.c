@@ -20,8 +20,8 @@ void  Lm35_Init(uint8 Channel, Adc_Prescaler_t Prescale, Adc_Resolution_t Resolu
     Lm35_ChannelArr[0] = 0;
 
     Adc_PrepareConfig(&Lm35_AdcConfig,
-                      ADC_RES_12BIT,
-                      ADC_PRESCALER_DIV2,
+                      Resolution,
+                      Prescale,
                       ADC_SCAN_CH_CONT_CONV,
                       Lm35_ChannelArr,
                       1);
