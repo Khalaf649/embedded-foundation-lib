@@ -72,6 +72,25 @@ typedef struct {
     GPIO_OType_t otype;
 } GPIO_PinConfig_t;
 
+typedef enum {
+    GPIO_AF_0  = 0x00, // System (SWD, JTAG, etc.)
+    GPIO_AF_1  = 0x01, // TIM1, TIM2
+    GPIO_AF_2  = 0x02, // TIM3, TIM4, TIM5
+    GPIO_AF_3  = 0x03, // TIM9, TIM10, TIM11
+    GPIO_AF_4  = 0x04, // I2C1, I2C2, I2C3
+    GPIO_AF_5  = 0x05, // SPI1, SPI2, SPI3, SPI4
+    GPIO_AF_6  = 0x06, // SPI2, SPI3, SPI4, SPI5
+    GPIO_AF_7  = 0x07, // USART1, USART2, USART6
+    GPIO_AF_8  = 0x08, // USART6
+    GPIO_AF_9  = 0x09, // I2C2, I2C3
+    GPIO_AF_10 = 0x0A, // OTG_FS
+    GPIO_AF_11 = 0x0B, // Ethernet
+    GPIO_AF_12 = 0x0C, // SDIO, OTG_HS
+    GPIO_AF_13 = 0x0D, // DCMI
+    GPIO_AF_14 = 0x0E, // Unused / Reserved
+    GPIO_AF_15 = 0x0F  // EVENTOUT
+} GPIO_AltFunc_t;
+
 /* --- Pointer Typedefs (Handles) --- */
 typedef GPIO_Pin_Location_t* GPIO_Pin_Handle_t;
 typedef GPIO_PinConfig_t* GPIO_Config_Handle_t;
@@ -83,6 +102,8 @@ void GPIO_InitPin(const GPIO_Pin_Handle_t pin_h, const GPIO_Config_Handle_t conf
 
 
 void GPIO_WritePin(const GPIO_Pin_Handle_t pin_h, GPIO_PinState_t state);
+
+void GPIO_SetAlternateFunction(const GPIO_Pin_Handle_t pin_h, GPIO_AltFunc_t af_value);
 
 
 GPIO_PinState_t GPIO_ReadPin(const GPIO_Pin_Handle_t pin_h);

@@ -20,5 +20,5 @@ void RCC_EnablePeripheral(uint8 PeripheralId) {
 }
 void Rcc_Init(void) {
     SET_BIT(RCC->CR, 0);
-    SET_BIT(RCC->APB2ENR, 14); // Bit 14 is SYSCFGEN in STM32F4
+    SET_BIT(RCC->APB2ENR, 4);
 }

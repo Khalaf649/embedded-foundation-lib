@@ -41,3 +41,32 @@ void delay_ms(uint32 ms) {
         }
     }
 }
+void floatToStr(float val, char* data)
+{
+    if (val < 0)
+    {
+        *data = '-';
+        data++;
+        val *= -1;
+    }
+
+    int intVal = (int)(val * 100);
+    data[6] = (intVal % 10) + '0';
+    intVal /= 10;
+    data[5] = (intVal % 10) + '0';
+    intVal /= 10;
+
+    data[4] = '.';
+
+    data[3] = (intVal % 10) + '0';
+    intVal /= 10;
+    data[2] = (intVal % 10) + '0';
+    intVal /= 10;
+    data[1] = (intVal % 10) + '0';
+    intVal /= 10;
+    data[0] = (intVal % 10) + '0';
+
+    data[7] = '\r';
+    data[8] = '\n';
+    data[9] = '\0';
+}

@@ -30,7 +30,9 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         Buzzer/Buzzer.h
         Buzzer/Buzzer.c
         Utils/Utils.c
-        Utils/Utils.h)
+        Utils/Utils.h
+        Usart/Usart.h
+        Usart/Usart.c)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols

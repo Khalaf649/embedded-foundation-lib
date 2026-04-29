@@ -73,3 +73,16 @@ void GPIO_TogglePin(const GPIO_Pin_Handle_t pin_h) {
     /* Using your TOG_BIT macro */
     TOG_BIT(GPIOx->ODR, pin_h->pin_number);
 }
+void GPIO_SetAlternateFunction(const GPIO_Pin_Handle_t pin_h, GPIO_AltFunc_t af_value) {
+    GPIO_RegDef_t* GPIOx = GPIO_PORT_LOOKUP[pin_h->port];
+
+    uint8 reg_index = pin_h->pin_number / 8;
+
+    // pin_number % 8 gives the relative pin position (0-7) within that register.
+    // Multiply by 4 because each pin takes exactly 4 bits.
+    uint8 shift_amount = (pin_h->pin_number % 8) * 4;
+
+    // 3. Apply the Alternate Function to the calculated register
+    GPIOx->AFR[reg_index] &= ~(0xFU << shift_amount);                 // Clear the 4 bits
+    GPIOx->AFR[reg_index] |=  ((uint32_t)af_value << shift_amount);   // Set the AF value
+}
