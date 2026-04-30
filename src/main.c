@@ -2,43 +2,58 @@
 #include "../Timer/Timer.h"
 #include "../app/App.h"
 
+/* We make the pin global so the callback function can see it */
+GPIO_Pin_Location_t led_pin = {GPIO_PORT_A, GPIO_PIN_5};
+
+/* ==================================================================== */
+/* --- The Callback Function (Interrupt Service Routine handler) --- */
+/* ==================================================================== */
+void MyTimerBlinkCallback(void) {
+    /* 1. Toggle the LED */
+    GPIO_TogglePin(&led_pin);
+
+    /* 2. Start the timer again for the next cycle (1000 ms) */
+    Timer_DelayMsAsync(TIM_INSTANCE_2, 1000, MyTimerBlinkCallback);
+}
+
+/* ==================================================================== */
+/* --- Main Application --- */
+/* ==================================================================== */
 int main(void) {
-    /* 1. System Clock Initialization */
-    App_Init(); // Must enable Clock for GPIOA and TIM2
+    /* 1. Initialize Clocks */
+    App_Init();
 
-    /* 2. GPIO Pin Location Definition */
-    GPIO_Pin_Location_t pa0_pin = {GPIO_PORT_A, GPIO_PIN_0};
-
-    /* 3. GPIO Configuration for Timer (Alternate Function) */
-    GPIO_PinConfig_t pa0_config;
-    GPIO_PrepareConfig(&pa0_config,
-                       GPIO_MODE_AF,      /* Use Alternate Function */
+    /* 2. Configure the Pin as a STANDARD OUTPUT */
+    GPIO_PinConfig_t led_config;
+    GPIO_PrepareConfig(&led_config,
+                       GPIO_MODE_OUTPUT,
                        GPIO_PULL_NONE,
-                       GPIO_SPEED_HIGH,
+                       GPIO_SPEED_LOW,
                        GPIO_OTYPE_PP);
 
-    /* 4. Apply GPIO Hardware Settings */
-    GPIO_InitPin(&pa0_pin, &pa0_config);
+    GPIO_InitPin(&led_pin, &led_config);
 
-    /* 5. Route Pin PA0 to Timer 2 (AF 1) */
-    /* This connects the internal TIM2_CH1 signal to the physical copper pin */
-    GPIO_SetAlternateFunction(&pa0_pin, GPIO_AF_1);
-
-    /* 6. Timer Timebase Setup */
-    /* Prescaler: 1ms ticks | Period: 500ms
-     * Result: The pin will change state every 500ms (1 second for full cycle)
+    /* 3. ENABLE THE NVIC (CRITICAL)
+     * The Timer generates an interrupt, but the NVIC (Nested Vectored
+     * Interrupt Controller) acts as the gatekeeper. If the NVIC door
+     * is closed, the CPU will never hear the interrupt.
+     *
+     * TIM2 is usually IRQ number 28 on STM32s.
+     * Because 28 is less than 32, it lives in the ISER[0] register.
      */
-    Timer_Init(TIM_INSTANCE_2, TIM_PRESCALER_1MS_TICK, 500);
+    /* Un-comment the line below if you don't have an NVIC driver yet: */
+    // *(volatile uint32*)(0xE000E100) |= (1UL << 28);
 
-    /* 7. Channel Setup (Toggle Mode) */
-    /* This tells the timer to flip the pin state on every match */
-    Timer_ConfigChannel(TIM_INSTANCE_2, TIM_CHANNEL_1, 15999/3,TIM_OC_TOGGLE,1000);
+    /* 4. Start the Asynchronous Delay (1 Second) */
+    /* This tells the timer: "Count to 1000ms, then call MyTimerBlinkCallback" */
+    Timer_DelayMsAsync(TIM_INSTANCE_2, 1000, MyTimerBlinkCallback);
 
-    /* 8. The Loop */
+    /* 5. The Infinite Loop */
     while (1) {
-        /* The CPU is doing absolutely nothing.
-         * If you check PA0 with an Oscilloscope or LED,
-         * it will be blinking automatically.
+        /* The CPU is completely free!
+         * It is NOT trapped in a while loop counting time.
+         * You can write code here to read sensors, do math, or sleep.
+         * The LED is blinking purely in the background.
          */
     }
 

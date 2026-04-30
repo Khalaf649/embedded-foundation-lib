@@ -6,7 +6,6 @@
 
 #include <BIT_MATH.h>
 #include <stddef.h>
-#include <stm32f4xx.h>
 
 #include "Timer_Private.h"
 #include "../Nvic/Nvic.h"
@@ -57,7 +56,7 @@ void Timer_DelayMs(Tim_Instance_t TimerInstance, uint32 DelayMs){
         // Poll – CPU is blocked here
     }
     timer->SR = 0; // Clear UIF
-    CLEAR_BIT(timer->CR[0], TIMER_CR1_CEN); // Stop counter
+    CLR_BIT(timer->CR[0], TIMER_CR1_CEN); // Stop counter
 
 
 }
@@ -111,11 +110,11 @@ void Timer_ConfigChannel(Tim_Instance_t TimerInstance, Tim_Channel_t Channel,Tim
     SET_BIT(timer->CCER, (Channel - 1) * 4);
 
     /* Load shadow registers & clear flags */
-    SET_BIT(timer->EGR, TIM_EGR_UG);
+    SET_BIT(timer->EGR, TIMER_EGR_UG);
     timer->SR = 0;
 
     /* Start */
-    SET_BIT(timer->CR[0], TIM_CR1_CEN);
+    SET_BIT(timer->CR[0], TIMER_CR1_CEN);
 
 
 }

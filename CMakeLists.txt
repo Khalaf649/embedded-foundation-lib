@@ -45,7 +45,9 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         lm35/lm35.h
         Timer/Timer.c
         Timer/Timer.h
-        Timer/Timer_Private.h)
+        Timer/Timer_Private.h
+        PWM/PWM.c
+        PWM/PWM.h)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols
