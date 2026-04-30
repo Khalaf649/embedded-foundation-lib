@@ -13,7 +13,7 @@ static Lm35_Callback_t Lm35_UserCallback = NULL;  /* stored async callback      
 static float Lm35_Convert(uint16 RawAdc)
 {
     float voltage_mv = ((float)RawAdc * LM35_VREF_MV) / LM35_ADC_MAX;
-    return voltage_mv / LM35_MV_PER_DEG -48;
+    return voltage_mv / LM35_MV_PER_DEG ;
 }
 
 void  Lm35_Init(uint8 Channel, Adc_Prescaler_t Prescale, Adc_Resolution_t Resolution) {

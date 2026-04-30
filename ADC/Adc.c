@@ -9,6 +9,7 @@
 #include "BIT_MATH.h"
 #include "Adc_private.h"
 #include "../Nvic/Nvic.h"
+#include "../GPIO/GPIO.h"
 static volatile Adc_AsyncStateType Adc_CurrentAsyncState = ADC_ASYNC_STATE_IDLE;
 
 /*  state for async scan-group read  */
@@ -36,6 +37,15 @@ static void Adc_SetSampleTime(uint8 Channel,ADC_SampleTime_t sampleTime) {
 
 void Adc_Init(const Adc_Config_Handle_t ConfigPtr) {
     if (ConfigPtr == NULL) return;
+    GPIO_PinConfig_t config;
+    // 1. Prepare the configuration
+    GPIO_PrepareConfig(&config, GPIO_MODE_ANALOG, GPIO_PULL_NONE, GPIO_SPEED_LOW, GPIO_OTYPE_PP);
+
+    // 2. Define the location
+    GPIO_Pin_Location_t pin = {GPIO_PORT_A, GPIO_PIN_0};
+
+    // 3. Initialize (PIN first, then CONFIG)
+    GPIO_InitPin(&pin, &config);
 
     WRITE_BIT_FIELD(ADC_COMMON->CCR, 0x03UL, ADC_CCR_ADCPRE_IDX, 2, ConfigPtr->prescaler);
 
