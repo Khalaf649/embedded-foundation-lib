@@ -42,7 +42,10 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         Nvic/Nvic_private.h
         Nvic/Nvic.c
         lm35/lm35.c
-        lm35/lm35.h)
+        lm35/lm35.h
+        Timer/Timer.c
+        Timer/Timer.h
+        Timer/Timer_Private.h)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols
