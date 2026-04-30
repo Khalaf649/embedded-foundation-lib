@@ -47,7 +47,9 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         Timer/Timer.h
         Timer/Timer_Private.h
         PWM/PWM.c
-        PWM/PWM.h)
+        PWM/PWM.h
+        Fan/Fan.h
+        Fan/Fan.c)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols
