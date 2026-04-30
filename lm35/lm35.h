@@ -13,7 +13,8 @@
 typedef void (*Lm35_Callback_t)(float Temperature);
 
 
-void  Lm35_Init(uint8 Channel, Adc_Prescaler_t Prescale, Adc_Resolution_t Resolution);
+void Lm35_Init(GPIO_Port_t Port, GPIO_Pin_t Pin, ADC_Channel_t Channel,
+               Adc_Prescaler_t Prescale, Adc_Resolution_t Resolution) ;
 
 float Lm35_GetTemperature(void);
 

@@ -40,12 +40,21 @@ void Adc_Init(const Adc_Config_Handle_t ConfigPtr) {
     GPIO_PinConfig_t config;
     // 1. Prepare the configuration
     GPIO_PrepareConfig(&config, GPIO_MODE_ANALOG, GPIO_PULL_NONE, GPIO_SPEED_LOW, GPIO_OTYPE_PP);
+    for (uint8 i = 0; i < ConfigPtr->numChannels; i++) {
+        GPIO_Port_t current_port = ConfigPtr->channels[i].port;
+        GPIO_Pin_t  current_pin  = ConfigPtr->channels[i].pin;
+        ADC_Channel_t current_ch = ConfigPtr->channels[i].channel_id;
 
-    // 2. Define the location
-    GPIO_Pin_Location_t pin = {GPIO_PORT_A, GPIO_PIN_0};
+        // Automatically initialize the GPIO pin for Analog Mode
+        GPIO_Pin_Location_t pin_loc = {current_port, current_pin};
+        GPIO_InitPin(&pin_loc, &config);
 
-    // 3. Initialize (PIN first, then CONFIG)
-    GPIO_InitPin(&pin, &config);
+        /* Set thermodynamic sampling window for the LM35 */
+        Adc_SetSampleTime(ConfigPtr->channels[i].channel_id,ConfigPtr->sampleTime);
+
+        /* Place the channel in the execution sequence */
+        Adc_SetSequence(i, ConfigPtr->channels[i].channel_id);
+    }
 
     WRITE_BIT_FIELD(ADC_COMMON->CCR, 0x03UL, ADC_CCR_ADCPRE_IDX, 2, ConfigPtr->prescaler);
 
@@ -69,13 +78,7 @@ void Adc_Init(const Adc_Config_Handle_t ConfigPtr) {
 
     WRITE_BIT_FIELD(ADC1->SQR[0], 0x0FUL, 5,4,(ConfigPtr->numChannels - 1));
 
-    for (uint8 i = 0; i < ConfigPtr->numChannels; i++) {
-        /* Set thermodynamic sampling window for the LM35 */
-        Adc_SetSampleTime(ConfigPtr->channels[i],ConfigPtr->sampleTime);
 
-        /* Place the channel in the execution sequence */
-        Adc_SetSequence(i, ConfigPtr->channels[i]);
-    }
 
     /* 7. Power Enable */
     SET_BIT(ADC1->CR[1], ADC_CR2_ADON);
@@ -99,7 +102,7 @@ uint16 Adc_ReadSingleChannel(void)
     return (uint16)(ADC1->DR & 0xFFFFU);
 }
 
-void Adc_PrepareConfig(P_void config_out, Adc_Resolution_t Resolution , Adc_Prescaler_t Prescaler, Adc_GroupMode_t GroupMode, uint8* Channels, uint8 NumChannels) {
+void Adc_PrepareConfig(P_void config_out, Adc_Resolution_t Resolution , Adc_Prescaler_t Prescaler, Adc_GroupMode_t GroupMode, Adc_ChannelConfig_t* Channels, uint8 NumChannels) {
     Adc_Config_t* pConfig = (Adc_Config_t*)config_out;
 
     /* Save the variables into the structure */

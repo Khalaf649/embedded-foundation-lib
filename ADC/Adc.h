@@ -6,6 +6,7 @@
 #define ADC_H
 #include "Adc_private.h"
 #include "STD_TYPES.h"
+#include "../GPIO/GPIO.h"
 typedef enum {
     ADC_RES_12BIT = 0,
     ADC_RES_10BIT = 1,
@@ -20,23 +21,13 @@ typedef enum {
     ADC_PRESCALER_DIV8 = 3
 } Adc_Prescaler_t;
 
+
 typedef enum {
     ADC_SINGLE_CH_SINGLE_CONV = 0,
     ADC_SINGLE_CH_CONT_CONV,
     ADC_SCAN_CH_SINGLE_CONV,
     ADC_SCAN_CH_CONT_CONV
 } Adc_GroupMode_t;
-
-/* The Master Config */
-typedef struct {
-    Adc_Resolution_t resolution;
-    Adc_GroupMode_t  groupMode;       /* The 4 modes */
-    Adc_Prescaler_t   prescaler;
-    uint8* channels;        /* Array of channels */
-    uint8     numChannels;
-    ADC_SampleTime_t sampleTime;     /* Sample time for all channels */
-} Adc_Config_t;
-
 typedef enum {
     ADC_CHANNEL_0 = 0U,
     ADC_CHANNEL_1,
@@ -55,6 +46,23 @@ typedef enum {
     ADC_CHANNEL_14,
     ADC_CHANNEL_15
 } ADC_Channel_t;
+typedef struct {
+    GPIO_Port_t      port;
+    GPIO_Pin_t       pin;
+    ADC_Channel_t    channel_id;
+} Adc_ChannelConfig_t;
+
+/* The Master Config */
+typedef struct {
+    Adc_Resolution_t resolution;
+    Adc_GroupMode_t  groupMode;       /* The 4 modes */
+    Adc_Prescaler_t   prescaler;
+    Adc_ChannelConfig_t* channels;        /* Array of channels */
+    uint8     numChannels;
+    ADC_SampleTime_t sampleTime;     /* Sample time for all channels */
+} Adc_Config_t;
+
+
 
 typedef Adc_Config_t* Adc_Config_Handle_t;
 
@@ -73,7 +81,7 @@ void Adc_StopConversion(void);
 
 uint16 Adc_ReadSingleChannel(void);
 
-void Adc_PrepareConfig(P_void config_out, Adc_Resolution_t Resolution , Adc_Prescaler_t Prescaler, Adc_GroupMode_t GroupMode, uint8* Channels, uint8 NumChannels);
+void Adc_PrepareConfig(P_void config_out, Adc_Resolution_t Resolution , Adc_Prescaler_t Prescaler, Adc_GroupMode_t GroupMode, Adc_ChannelConfig_t* Channels, uint8 NumChannels);
 void Adc_ScanChannelGroup(uint16* Results, uint8 NumChannels);
 void Adc_SetSingleCallback(AdcSingleChannelCallback Callback);
 void Adc_ScanChannelGroupAsync(uint16* Results, uint8 NumChannels,
