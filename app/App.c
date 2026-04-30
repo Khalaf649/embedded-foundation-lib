@@ -25,7 +25,7 @@ void print_on_screen(float Temperature) {
 void App_Init(void) {
     System_InitAll();
     Usart1_Init();
-    Lm35_GetTemperatureAsync(print_on_screen);
+   // Lm35_GetTemperatureAsync(print_on_screen);
 
 
 }

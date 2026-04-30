@@ -29,11 +29,11 @@ void System_InitAll(void) {
 
     Lcd_Init(&app_lcd);
 
-    Lm35_Init(LM_PORT,
-              LM_PIN,
-              LM_CHANNEL,
-              LM_PRESCALER,
-              LM_RESOLUTION);
+    // Lm35_Init(LM_PORT,
+    //           LM_PIN,
+    //           LM_CHANNEL,
+    //           LM_PRESCALER,
+    //           LM_RESOLUTION);
 
 
 

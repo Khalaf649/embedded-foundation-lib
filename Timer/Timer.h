@@ -47,7 +47,8 @@ void Timer_Start(Tim_Instance_t TimerInstance);
 void Timer_Stop(Tim_Instance_t TimerInstance);
 
 void Timer_DelayMs(Tim_Instance_t TimerInstance, uint32 DelayMs);
-void Timer_ConfigChannel(Tim_Instance_t TimerInstance, Tim_Channel_t Channel, Tim_OutputCompareMode_t Mode);
+void Timer_ConfigChannel(Tim_Instance_t TimerInstance, Tim_Channel_t Channel,Tim_Prescaler_t Prescaler
+                         , Tim_OutputCompareMode_t Mode, uint16 Period);
 void Timer_DelayMsAsync(Tim_Instance_t TimerInstance, uint32 DelayMs, TimerCallback_t Callback);
 void Timer_SetCompareValue(Tim_Instance_t TimerInstance, Tim_Channel_t Channel, uint32 CompareValue);
 #endif //TIMER_H

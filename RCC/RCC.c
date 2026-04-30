@@ -20,7 +20,12 @@ void RCC_EnablePeripheral(uint8 PeripheralId) {
 }
 void Rcc_Init(void) {
     SET_BIT(RCC->CR, 0);
+    SET_BIT(RCC->APB2ENR, 2);   // Enable GPIOA clock
     SET_BIT(RCC->APB2ENR, 4);
     SET_BIT(RCC->APB2ENR, 8);   // Enable ADC1 clock
+    SET_BIT(RCC->APB1ENR, 0);   // Enable TIM2 clock
+    SET_BIT(RCC->APB1ENR, 1);   // Enable TIM3 clock
+    SET_BIT(RCC->APB1ENR, 2);   // Enable TIM4 clock
+    SET_BIT(RCC->APB1ENR, 3);   // Enable TIM5 clock
 
 }
