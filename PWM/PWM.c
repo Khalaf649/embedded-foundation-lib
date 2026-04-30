@@ -29,8 +29,8 @@ void Pwm_Init(Tim_Instance_t TimerInstance,Tim_Channel_t Channel, Tim_Prescaler_
         timer->CCMR[0] |= ((uint32) TIM_OC_PWM1_PRELOAD << shift);
     } else {
         uint8 shift = (Channel - 3) * 8;
-        timer->CCMR[2] &= ~((uint32) 0xFF << shift);
-        timer->CCMR[2] |= ((uint32) TIM_OC_PWM1_PRELOAD << shift);
+        timer->CCMR[1] &= ~((uint32) 0xFF << shift);   //
+        timer->CCMR[1] |= ((uint32) TIM_OC_PWM1_PRELOAD << shift); //
     }
     SET_BIT(timer->CCER, (Channel - 1) * 4);
     CCR_REG(timer, Channel) = 0;

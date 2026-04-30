@@ -49,6 +49,7 @@ static void Lm35_AdcInternalCallback(uint16 RawAdc)
         /* Convert here so the user callback signature is just float */
         Lm35_UserCallback(Lm35_Convert(RawAdc));
     }
+    Adc_StartConversion();
 }
 void Lm35_GetTemperatureAsync(Lm35_Callback_t Callback)
 {

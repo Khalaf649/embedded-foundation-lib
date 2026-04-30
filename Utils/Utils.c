@@ -94,3 +94,21 @@ void floatToStr(float val, char* data)
         data[i] = '\0'; // Seal the string with a final null terminator
     }
 }
+ void IntToString(uint32 num, char* str) {
+    if (num == 0) {
+        str[0] = '0';
+        str[1] = '\0';
+        return;
+    }
+    int i = 0;
+    char temp[10];
+    while (num > 0) {
+        temp[i++] = (num % 10) + '0';
+        num /= 10;
+    }
+    int j = 0;
+    while (i > 0) {
+        str[j++] = temp[--i];
+    }
+    str[j] = '\0';
+}

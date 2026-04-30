@@ -27,8 +27,8 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         exti/exti_private.h
         app/App.h
         app/App.c
-        Buzzer/Buzzer.h
-        Buzzer/Buzzer.c
+        Led/Led.h
+        Led/Led.c
         Utils/Utils.c
         Utils/Utils.h
         Usart/Usart.h
