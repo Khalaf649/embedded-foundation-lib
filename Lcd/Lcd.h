@@ -29,6 +29,9 @@ void Lcd_PrepareConfig(P_void config_out,
                        GPIO_Pin_Location_t d6,
                        GPIO_Pin_Location_t d7);
 
+#define LCD_DELAY_TIMER    TIM_INSTANCE_3    // Free timer dedicated to LCD delays
+
+
 // Initializes the GPIO pins and runs the LCD 4-bit startup sequence
 void Lcd_Init(const Lcd_Config_Handle_t lcd_h);
 

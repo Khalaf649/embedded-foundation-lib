@@ -23,17 +23,13 @@ void Pwm_Init(Tim_Instance_t TimerInstance,Tim_Channel_t Channel, Tim_Prescaler_
     timer->PSC = Prescaler;
     timer->ARR = AutoReload;
     timer->CNT = 0;
-    if (Channel <= 2) {
-        uint8 shift = (Channel - 1)*8;
-        timer->CCMR[0] &= ~((uint32) 0xFF << shift);
-        timer->CCMR[0] |= ((uint32) TIM_OC_PWM1_PRELOAD << shift);
-    } else {
-        uint8 shift = (Channel - 3) * 8;
-        timer->CCMR[1] &= ~((uint32) 0xFF << shift);   //
-        timer->CCMR[1] |= ((uint32) TIM_OC_PWM1_PRELOAD << shift); //
-    }
+    uint8 idx   = (Channel - 1) >> 1;
+    uint8 shift = ((Channel - 1) & 0x01) << 3;
+    timer->CCMR[idx] &= ~((uint32)0xFF << shift);
+    timer->CCMR[idx] |= ((uint32)TIM_OC_PWM1_PRELOAD << shift);
+    // Enable Channel Output
     SET_BIT(timer->CCER, (Channel - 1) * 4);
-    CCR_REG(timer, Channel) = 0;
+    timer->CCR[Channel - 1] = 0;
 
     SET_BIT(timer->CR[0], TIMER_CR1_ARPE);
     SET_BIT(timer->EGR, TIMER_EGR_UG);
@@ -55,7 +51,7 @@ void Pwm_SetDutyPercent(Tim_Instance_t TimerInstance, Tim_Channel_t Channel, uin
     uint32 arr = timer->ARR;
     uint32 ccr = ((uint32) DutyPercent * arr) / 100UL;
 
-    CCR_REG(timer, Channel) = ccr;
+    timer->CCR[Channel - 1] = ccr;
 }
 
 void Pwm_Start(Tim_Instance_t TimerInstance, Tim_Channel_t Channel) {

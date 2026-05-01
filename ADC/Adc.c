@@ -85,7 +85,7 @@ void Adc_Init(const Adc_Config_Handle_t ConfigPtr) {
 }
 void Adc_StartConversion(void)
 {
-    ADC1->SR = 0;
+    ADC1->SR = 0; // for end of conversion
     SET_BIT(ADC1->CR[1], ADC_CR2_SWSTART);
 }
 
@@ -158,7 +158,7 @@ void Adc_ScanChannelGroupAsync(uint16* Results, uint8 NumChannels,
     Nvic_EnableInterrupt(ADC_IRQ_NUMBER);
    // SET_BIT(ADC1->CR[1], ADC_CR2_ADON); Potential BUG
 
-    SET_BIT(ADC1->CR[1], ADC_CR2_SWSTART);
+    SET_BIT(ADC1->CR[1], ADC_CR2_SWSTART); // start convestaion with mutiple channels
 
 }
 void ADC_IRQHandler(void)
@@ -198,7 +198,7 @@ void ADC_IRQHandler(void)
                 uint16 result = (uint16)(ADC1->DR & 0xFFFFU);
 
                 // CLEAR_BIT(ADC1->CR1, CR1_EOCIE);
-                ADC1->SR = 0;
+                ADC1->SR = 0; // clear of peding of flag
 
                 Adc_SingleCallback(result);
             }

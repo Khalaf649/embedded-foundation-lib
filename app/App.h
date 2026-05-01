@@ -17,6 +17,7 @@
 {GPIO_PORT_B, GPIO_PIN_2}   /* Index 5: D7 */      \
 }
 
+
 /* ── LM35 Sensor ──────────────────────────────────── */
 #define LM_PORT          GPIO_PORT_A
 #define LM_PIN           GPIO_PIN_0

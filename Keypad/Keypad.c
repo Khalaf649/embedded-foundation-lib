@@ -37,7 +37,7 @@ boolean Keypad_GetPressedKey(const Keypad_Config_Handle_t config_h, Keypad_Data_
 
         for (uint8_t c = 0; c < KEYPAD_COLS; c++) {
             if (GPIO_ReadPin(&(config_h->col_pins[c])) == GPIO_LOW) {
-                delay_ms(30);
+                //delay_ms(30);
                 if (GPIO_ReadPin(&(config_h->col_pins[c]))== GPIO_LOW) {
                     *key_h = Keypad_Map[r][c];
                     isPressed = TRUE;

@@ -29,18 +29,18 @@ void SysTick_Init(void) {
     SYSTICK_CTRL = 0x05;
 }
 
-void delay_ms(uint32 ms) {
-    for (uint32 i = 0; i < ms; i++) {
-        // Clear the current value
-        SYSTICK_VAL = 0;
-
-        // Wait until the COUNTFLAG (Bit 16) is set to 1
-        // This bit turns to 1 every time the timer hits 0 (which takes exactly 1ms)
-        while ((SYSTICK_CTRL & (1 << 16)) == 0) {
-            // Do nothing, just wait
-        }
-    }
-}
+// void delay_ms(uint32 ms) {
+//     for (uint32 i = 0; i < ms; i++) {
+//         // Clear the current value
+//         SYSTICK_VAL = 0;
+//
+//         // Wait until the COUNTFLAG (Bit 16) is set to 1
+//         // This bit turns to 1 every time the timer hits 0 (which takes exactly 1ms)
+//         while ((SYSTICK_CTRL & (1 << 16)) == 0) {
+//             // Do nothing, just wait
+//         }
+//     }
+// }
 void floatToStr(float val, char* data)
 {
     // 1. Handle Negative Numbers

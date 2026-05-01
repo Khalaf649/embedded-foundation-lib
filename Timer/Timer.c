@@ -32,8 +32,7 @@ void Timer_Init(Tim_Instance_t TimerInstance, Tim_Prescaler_t Prescaler, uint16 
 }
 void Timer_Start(Tim_Instance_t TimerInstance) {
     TimerType * timer = Timers[TimerInstance];
-    SET_BIT(timer->CR[0], TIMER_CR1_CEN);
-
+    SET_BIT(timer->CR[0], TIMER_CR1_CEN); // enable timer // counter enable
 
 }
 void Timer_Stop(Tim_Instance_t TimerInstance) {
@@ -93,21 +92,15 @@ void Timer_ConfigChannel(Tim_Instance_t TimerInstance, Tim_Channel_t Channel,Tim
     timer->ARR = Period - 1;
     timer->CNT = 0;
 
-    if (Channel <= 2) {
-        uint8 shift = (Channel - 1) * 8;
-        timer->CCMR[0] &= ~((uint32) 0xFF << shift);
-        timer->CCMR[0] |= ((uint32) Mode << shift);
-    } else {
-        uint8 shift = (Channel - 3) * 8;
-        timer->CCMR[1] &= ~((uint32) 0xFF << shift);
-        timer->CCMR[1] |= ((uint32) Mode << shift);
-    }
+    uint8 idx   = (Channel - 1) >> 1;          // Equivalent to (Channel - 1) / 2
+    uint8 shift = ((Channel - 1) & 0x01) << 3; // Equivalent to ((Channel - 1) % 2) * 8
 
-    /* Set compare value (CCRx) */
-    volatile uint32 *ccr = &timer->CCR[0] + (Channel - 1);
-    *ccr = 0;
+    timer->CCMR[idx] &= ~((uint32)0xFF << shift);
+    timer->CCMR[idx] |= ((uint32)Mode << shift);
+
+    timer->CCR[Channel - 1] = 0;
     /* Enable channel output (CCxE bit in CCER) */
-    SET_BIT(timer->CCER, (Channel - 1) * 4);
+    SET_BIT(timer->CCER, (Channel - 1) * 4); // Enable output for ouput compate
 
     /* Load shadow registers & clear flags */
     SET_BIT(timer->EGR, TIMER_EGR_UG);

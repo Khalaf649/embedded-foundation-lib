@@ -57,5 +57,4 @@ void Lm35_GetTemperatureAsync(Lm35_Callback_t Callback)
 
     Adc_SetSingleCallback(Lm35_AdcInternalCallback);
 
-    Adc_StartConversion();
 }

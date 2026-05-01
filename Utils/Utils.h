@@ -10,7 +10,6 @@
 void SysTick_Init(void);
 
 // Hardware-accurate millisecond delay
-void delay_ms(uint32 ms);
 void floatToStr(float val, char* data);
 void IntToString(uint32 num, char* str);
 #endif //UTILS_H
