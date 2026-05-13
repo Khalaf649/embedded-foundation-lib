@@ -95,9 +95,8 @@ void Timer_StartPeriodic(Tim_Instance_t TimerInstance, uint32 PeriodMs, TimerCal
 
     timer->CR[0] = 0;
 
-    // FIX: Changed to a 1ms tick to prevent 16-bit ARR overflow
-    // 16 MHz / 16000 = 1 kHz (1ms tick)
-    timer->PSC = 15999;
+
+    timer->PSC = 15999 /3;
     timer->ARR = PeriodMs - 1;
 
     timer->CNT = 0;
