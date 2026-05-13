@@ -34,6 +34,8 @@ set(ALL_PROJECT_SOURCES
         PWM/PWM.c PWM/PWM.h
         Fan/Fan.h Fan/Fan.c
         Button/Button.c Button/Button.h
+        Motor/Motor.c
+        Motor/Motor.h
 )
 
 set(MASTER_EXE "Elevator_Master")

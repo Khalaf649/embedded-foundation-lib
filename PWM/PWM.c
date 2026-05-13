@@ -13,11 +13,11 @@ static TimerType* const PWM_ADREESES[6] = {
     TIM4,
     TIM5
 };
-#define CCR_REG(TIMER, CHANNEL)  *((volatile uint32 *) (&(TIMER->CCR[0]) + (CHANNEL - 1)))
+static const uint8 PWM_RccId[6] = {0, 0, 64, 65, 66, 67};
 
 
 void Pwm_Init(Tim_Instance_t TimerInstance,Tim_Channel_t Channel, Tim_Prescaler_t Prescaler, uint16 AutoReload) {
-
+    RCC_EnablePeripheral(PWM_RccId[TimerInstance]);
     TimerType * timer = PWM_ADREESES[TimerInstance];
     timer->CR[0] = 0; // Reset timer // counter disable
     timer->PSC = Prescaler;

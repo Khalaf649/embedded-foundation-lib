@@ -6,6 +6,7 @@
 #define PWM_H
 #include "STD_TYPES.h"
 #include "../Timer/Timer.h"
+#include "../RCC/RCC.h"
 void Pwm_Init(Tim_Instance_t TimerInstance,Tim_Channel_t Channel, Tim_Prescaler_t Prescaler, uint16 AutoReload);
 
 void Pwm_SetDutyPercent(Tim_Instance_t TimerInstance, Tim_Channel_t Channel, uint8 DutyPercent);
