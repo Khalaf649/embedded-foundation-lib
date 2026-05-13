@@ -11,4 +11,8 @@
 void App_Init(void);
 void App_Run(void);
 
+// Slave Functions
+void App_Slave_Init(void);
+void App_Slave_Run(void);
+
 #endif /* APP_H */

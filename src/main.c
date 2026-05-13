@@ -1,14 +1,17 @@
-
 #include "../app/App.h"
 #include "../Usart/Usart.h"
 
 int main(void)
 {
-    /* 1. Initialize everything (keypad, 7seg, LEDs, clocks, etc.) */
+#ifdef BUILD_AS_MASTER
     App_Init();
+    App_Run();
     Usart1_TransmitString("Elevator System Started... Waiting for button press\r\n");
-    while (1) {
-        // App_Run();
-    }
+#else
+    App_Slave_Init();
+    App_Slave_Run();
+#endif
 
+    while (1) {
+    }
 }
