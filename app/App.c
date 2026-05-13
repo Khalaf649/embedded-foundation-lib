@@ -1,74 +1,97 @@
 //
-// Created by Khalaf on 16/04/2026.
+// Created by Khalaf on [Current Date].
 //
 
 #include "App.h"
-#include "../Button/Button.h"
 #include "../RCC/RCC.h"
-#include "../Usart/Usart.h"
-#include "../Motor/Motor.h"
-#include "../Timer/Timer.h"
+#include "../Usart/Usart.h" // الـ Header بتاعك
+#include "../SPI/Spi.h"
 
-#include "../IPC/Ipc.h"
-#include "../SPI/Spi.h" // Added SPI include
+/* --- متغيرات الاختبار (1 Byte) --- */
+volatile uint8 tx_char = 0;
+volatile uint8 rx_char = 0;
 
+/* ==================================================================== */
+/* MASTER LOGIC (Board A)                                               */
+/* ==================================================================== */
+#ifdef BUILD_AS_MASTER
 
-// Shared Volatile Flags
-static volatile Ipc_Packet_t my_elevator_state;
+void App_Init(void) {
+    Rcc_Init();
+    Usart1_Init(); // تهيئة الـ USART
+    Spi1_Init(); // إعداد الماستر
 
-// Fired every 50ms by hardware timer
-static void App_50ms_Tick(void) {
-    // 1. Kick off non-blocking SPI communication
-    Spi2_Start_Exchange((Ipc_Packet_t*)&my_elevator_state);
+    Usart1_TransmitString("\r\n=================================\r\n");
+    Usart1_TransmitString("[MASTER] SPI Test Ready!\r\n");
+    Usart1_TransmitString("Type any character in this terminal...\r\n");
+    Usart1_TransmitString("=================================\r\n");
 }
 
-static uint8 led_state = 0;
+void App_Run(void) {
+    /* 1. الانتظار حتى يقوم المستخدم بكتابة حرف على الـ Terminal
+     * نستخدم دالتك بالظبط: Usart1_RecieveByte
+     */
+    tx_char = Usart1_RecieveByte();
 
-static void App_BlinkCallback(void) {
-    if (led_state == 0) {
-        Motor_SetSpeed(MOTOR_HIGH_SPEED);
-        led_state = 1;
-    } else {
-        Motor_SetSpeed(MOTOR_REST);
-        led_state = 0;
+    /* 2. التأكد أن الـ SPI جاهز ثم إرسال الحرف */
+    if (Spi1_GetState() == SPI_STATUS_IDLE) {
+
+        // إرسال بايت واحد فقط
+        Spi1_Master_Start_Exchange(&tx_char, &rx_char, 1);
+
+        // انتظار انتهاء الإرسال (لغرض الاختبار فقط)
+        while(Spi1_GetState() == SPI_STATUS_BUSY);
+
+        /* 3. طباعة التأكيد وما تم استلامه من السليف */
+        Usart1_TransmitString("\r\n[MASTER] Sent: ");
+        Usart1_TransmitByte(tx_char); // استخدام دالتك TransmitByte
+        Usart1_TransmitString(" | Received from Slave: ");
+        Usart1_TransmitByte(rx_char);
+        Usart1_TransmitString("\r\n> ");
     }
 }
 
-void App_Init(void)
-{
+/* ==================================================================== */
+/* SLAVE LOGIC (Board B)                                                */
+/* ==================================================================== */
+#else
+
+void App_Slave_Init(void) {
     Rcc_Init();
     Usart1_Init();
-    Button_Init();
-    Motor_Init();
+    Spi1_Init(); // إعداد السليف
 
-    // ADD THIS: Turn on the Master SPI Hardware
-    Spi2_Init_Master();
+    Usart1_TransmitString("\r\n=================================\r\n");
+    Usart1_TransmitString("[SLAVE] SPI Test Ready!\r\n");
+    Usart1_TransmitString("Waiting for data from Master...\r\n");
+    Usart1_TransmitString("=================================\r\n");
 
-    Usart1_TransmitString("Hardware Initialized...\r\n");
+    /* تجهيز الرد المبدئي للسليف */
+    tx_char = '*';
 
-    // ========================================================
-    // 1. Timer 4: Motor Blinking (1000ms)
-    // ========================================================
-    Timer_Init(TIM_INSTANCE_4, 15, 999);
-    Timer_StartPeriodic(TIM_INSTANCE_4, 1000, App_BlinkCallback);
-
-    Usart1_TransmitString("Timer 4 Started: Blinking LED every 1 second\r\n");
-
-    // Init local state
-    my_elevator_state.state = ELEV_IDLE;
-    my_elevator_state.current_floor = 1;
-
-    // ========================================================
-    // 2. Timer 3: SPI Communication (50ms)
-    // We CANNOT use Timer 4 here, it is already busy!
-    // ========================================================
-    Timer_Init(TIM_INSTANCE_3, 15, 999);
-    Timer_StartPeriodic(TIM_INSTANCE_3, 50, App_50ms_Tick);
-
-    Usart1_TransmitString("Elevator Master Node Initialized. SPI Sync @ 50ms\r\n");
+    /* "The Slave Challenge": تجهيز الداتا قبل أن يبدأ الماستر */
+    Spi1_Slave_Stage_Data(&tx_char, &rx_char, 1);
 }
 
-void App_Run(void)
-{
-    // فارغة تماماً، كل حاجة شغالة بالـ Interrupts
+void App_Slave_Run(void) {
+    static SPI_Status_t last_state = SPI_STATUS_IDLE;
+    SPI_Status_t current_state = Spi1_GetState();
+
+    /* اكتشاف اللحظة التي ينتهي فيها النقل (تغير الحالة من BUSY إلى IDLE) */
+    if (last_state == SPI_STATUS_BUSY && current_state == SPI_STATUS_IDLE) {
+
+        /* 1. طباعة الحرف الذي وصل من الماستر */
+        Usart1_TransmitString("\r\n[SLAVE] Received from Master: ");
+        Usart1_TransmitByte(rx_char); // استخدام دالتك TransmitByte
+
+        /* 2. تجهيز الرد للنبضة القادمة (Echo) */
+        tx_char = rx_char;
+
+        /* 3. إعادة تحميل البيانات فوراً للدورة القادمة */
+        Spi1_Slave_Stage_Data(&tx_char, &rx_char, 1);
+    }
+
+    last_state = current_state;
 }
+
+#endif

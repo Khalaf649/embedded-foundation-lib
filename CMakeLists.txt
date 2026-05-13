@@ -38,6 +38,7 @@ set(ALL_PROJECT_SOURCES
         Motor/Motor.h
         Scheduler/Scheduler.c
         Scheduler/Scheduler.h
+        elevator/elevator.h
 )
 
 set(MASTER_EXE "Elevator_Master")

@@ -1,19 +1,31 @@
 //
-// Created by zramd on 13/05/2026.
+// Created by Khalaf on [Current Date].
 //
 
 #ifndef SPI_H
 #define SPI_H
 
-#include "../include/STD_TYPES.h"
-#include "../IPC/Ipc.h"
+#include "STD_TYPES.h"
+#include "../Nvic/Nvic.h" // ENTER_CRITICAL AND EXIT_CRITICAL
 
-extern volatile uint8 spi_transfer_complete;
-extern Ipc_Packet_t rx_packet;
-extern Ipc_Packet_t tx_packet; // <-- ADD THIS LINE
+/* --- SPI Driver Status --- */
+typedef enum {
+    SPI_STATUS_IDLE = 0,
+    SPI_STATUS_BUSY = 1
+} SPI_Status_t;
 
-void Spi2_Init_Master(void);
-void Spi2_Init_Slave(void);
-void Spi2_Start_Exchange(Ipc_Packet_t* local_data);
+/* --- Core APIs --- */
+void Spi1_Init(void);
 
+#ifdef BUILD_AS_MASTER
+/* Master Mode: Initiates the transfer and controls CS */
+void Spi1_Master_Start_Exchange(volatile uint8* tx_buf, volatile uint8* rx_buf, uint16 len);
+#else
+/* Slave Mode (The Challenge): Stages data into DR before clock arrives */
+void Spi1_Slave_Stage_Data(volatile uint8* tx_buf, volatile uint8* rx_buf, uint16 len);
 #endif
+
+/* Check if the background interrupt transfer is done */
+SPI_Status_t Spi1_GetState(void);
+
+#endif // SPI_H

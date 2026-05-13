@@ -22,5 +22,6 @@ typedef enum {
 /* --- APIs --- */
 void Motor_Init(void);
 void Motor_SetSpeed(Motor_Speed_t speed_lvl);
+Motor_Speed_t Motor_GetSpeed(void);
 
 #endif //STM32_TEMPLATE_MOTOR_H

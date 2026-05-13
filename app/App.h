@@ -5,14 +5,15 @@
 #ifndef APP_H
 #define APP_H
 
-
-
-
-void App_Init(void);
+// ── Master (Board A) ─────────────────────────────────────
+#ifdef BUILD_AS_MASTER
+void App_Init(void);   
 void App_Run(void);
 
-// Slave Functions
+// ── Slave (Board B) ──────────────────────────────────────
+#else
 void App_Slave_Init(void);
 void App_Slave_Run(void);
+#endif
 
-#endif /* APP_H */
+#endif // APP_H
