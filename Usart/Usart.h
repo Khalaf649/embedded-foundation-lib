@@ -14,4 +14,6 @@ uint8 Usart1_TransmitByte(uint8 Byte);
 uint8 Usart1_RecieveByte(void);
 
 void Usart1_TransmitString(const char* Str);
+
+
 #endif //USART_H
