@@ -44,7 +44,14 @@ set(MASTER_EXE "Elevator_Master")
 set(SLAVE_EXE  "Elevator_Slave")
 
 
-add_executable(${MASTER_EXE} ${ALL_PROJECT_SOURCES})
+add_executable(${MASTER_EXE} ${ALL_PROJECT_SOURCES}
+        IPC/IPC.h
+        Dispatcher/Dispatcher.h
+        Dispatcher/Dispatcher.c
+        SPI/Spi.c
+        SPI/Spi.h
+        IPC/IPC.c
+        app/App_Slave.c)
 target_include_directories(${MASTER_EXE} PUBLIC ${INCLUDE_LIST})
 
 target_compile_definitions(${MASTER_EXE} PUBLIC ${COMPILER_DEFINE} BUILD_AS_MASTER)
@@ -53,7 +60,12 @@ target_compile_options(${MASTER_EXE} PUBLIC ${CPU_PARAMETERS} -Wall -Wpedantic -
 target_link_options(${MASTER_EXE} PRIVATE ${CPU_PARAMETERS} -L${LINKER_SCRIPTS_BASE_DIR} -T${LINKER_SCRIPTS_BASE_DIR}/${SERIES_FOLDER}/${DEVICE}.ld -Xlinker --gc-sections -Wl,-Map=${MASTER_EXE}.map --specs=nano.specs)
 
 
-add_executable(${SLAVE_EXE} ${ALL_PROJECT_SOURCES})
+add_executable(${SLAVE_EXE} ${ALL_PROJECT_SOURCES}
+        IPC/IPC.h
+        IPC/IPC.c
+        SPI/Spi.h
+        SPI/Spi.c
+        app/App_Slave.c)
 target_include_directories(${SLAVE_EXE} PUBLIC ${INCLUDE_LIST})
 
 target_compile_definitions(${SLAVE_EXE} PUBLIC ${COMPILER_DEFINE})
