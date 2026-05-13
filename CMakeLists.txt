@@ -16,75 +16,56 @@ include(cmake/IncludeList.cmake)
 set(LINKER_SCRIPTS_BASE_DIR              ${PROJECT_PATH}/STM32-base/linker/)
 set(STARTUP_BASE_DIR                     ${PROJECT_PATH}/STM32-base/startup/)
 
-set(EXECUTABLE                           ${CMAKE_PROJECT_NAME})
 
-# Executable files
-add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}/${MAPPED_DEVICE}.s
-        System/System.h
-        System/System.c
-        exti/exti.c
-        exti/exti.h
-        exti/exti_private.h
-        app/App.h
-        app/App.c
-        Led/Led.h
-        Led/Led.c
-        Utils/Utils.c
-        Utils/Utils.h
-        Usart/Usart.h
-        Usart/Usart.c
-        Lcd/Lcd.c
-        Lcd/Lcd.h
-        ADC/Adc.c
-        ADC/Adc.h
-        ADC/Adc_private.h
-        Nvic/Nvic.h
-        Nvic/Nvic_private.h
-        Nvic/Nvic.c
-        lm35/lm35.c
-        lm35/lm35.h
-        Timer/Timer.c
-        Timer/Timer.h
-        Timer/Timer_Private.h
-        PWM/PWM.c
-        PWM/PWM.h
-        Fan/Fan.h
-        Fan/Fan.c
-        Button/Button.c
-        Button/Button.h)
-# Include
-target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
-# Project symbols
-target_compile_definitions(${EXECUTABLE} PUBLIC ${COMPILER_DEFINE})
-# Compiler options
-target_compile_options(${EXECUTABLE} PUBLIC
-        ${CPU_PARAMETERS}
-        -Wall
-        -Wpedantic
-        -Wno-unused-parameter
+set(ALL_PROJECT_SOURCES
+        ${SOURCE_LIST}
+        ${STARTUP_BASE_DIR}/${SERIES_FOLDER}/${MAPPED_DEVICE}.s
+        System/System.h System/System.c
+        exti/exti.c exti/exti.h exti/exti_private.h
+        app/App.h app/App.c
+        Led/Led.h Led/Led.c
+        Utils/Utils.c Utils/Utils.h
+        Usart/Usart.h Usart/Usart.c
+        Lcd/Lcd.c Lcd/Lcd.h
+        ADC/Adc.c ADC/Adc.h ADC/Adc_private.h
+        Nvic/Nvic.h Nvic/Nvic_private.h Nvic/Nvic.c
+        lm35/lm35.c lm35/lm35.h
+        Timer/Timer.c Timer/Timer.h Timer/Timer_Private.h
+        PWM/PWM.c PWM/PWM.h
+        Fan/Fan.h Fan/Fan.c
+        Button/Button.c Button/Button.h
 )
 
-# Linker options
-target_link_options(${EXECUTABLE} PRIVATE
-        ${CPU_PARAMETERS}
-        -L${LINKER_SCRIPTS_BASE_DIR}
-        -T${LINKER_SCRIPTS_BASE_DIR}/${SERIES_FOLDER}/${DEVICE}.ld
-#        -nostartfiles
-        -Xlinker --gc-sections
-        -Wl,-Map=${CMAKE_PROJECT_NAME}.map
-        --specs=nano.specs
-        #-u _printf_float                # STDIO float formatting support
-)
+set(MASTER_EXE "Elevator_Master")
+set(SLAVE_EXE  "Elevator_Slave")
 
-# Execute post-build to print size
-add_custom_command(TARGET ${EXECUTABLE} POST_BUILD
-        COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${EXECUTABLE}>
-)
-# Convert output to hex and binary
-add_custom_command(TARGET ${EXECUTABLE} POST_BUILD
-        COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${EXECUTABLE}> ${EXECUTABLE}.hex
-)
 
-add_custom_command(TARGET ${EXECUTABLE} POST_BUILD
-        COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${EXECUTABLE}> ${EXECUTABLE}.bin
-)
+add_executable(${MASTER_EXE} ${ALL_PROJECT_SOURCES})
+target_include_directories(${MASTER_EXE} PUBLIC ${INCLUDE_LIST})
+
+target_compile_definitions(${MASTER_EXE} PUBLIC ${COMPILER_DEFINE} BUILD_AS_MASTER)
+
+target_compile_options(${MASTER_EXE} PUBLIC ${CPU_PARAMETERS} -Wall -Wpedantic -Wno-unused-parameter)
+target_link_options(${MASTER_EXE} PRIVATE ${CPU_PARAMETERS} -L${LINKER_SCRIPTS_BASE_DIR} -T${LINKER_SCRIPTS_BASE_DIR}/${SERIES_FOLDER}/${DEVICE}.ld -Xlinker --gc-sections -Wl,-Map=${MASTER_EXE}.map --specs=nano.specs)
+
+
+add_executable(${SLAVE_EXE} ${ALL_PROJECT_SOURCES})
+target_include_directories(${SLAVE_EXE} PUBLIC ${INCLUDE_LIST})
+
+target_compile_definitions(${SLAVE_EXE} PUBLIC ${COMPILER_DEFINE})
+
+target_compile_options(${SLAVE_EXE} PUBLIC ${CPU_PARAMETERS} -Wall -Wpedantic -Wno-unused-parameter)
+target_link_options(${SLAVE_EXE} PRIVATE ${CPU_PARAMETERS} -L${LINKER_SCRIPTS_BASE_DIR} -T${LINKER_SCRIPTS_BASE_DIR}/${SERIES_FOLDER}/${DEVICE}.ld -Xlinker --gc-sections -Wl,-Map=${SLAVE_EXE}.map --specs=nano.specs)
+
+
+foreach(EXE ${MASTER_EXE} ${SLAVE_EXE})
+    add_custom_command(TARGET ${EXE} POST_BUILD
+            COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${EXE}>
+    )
+    add_custom_command(TARGET ${EXE} POST_BUILD
+            COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${EXE}> ${EXE}.hex
+    )
+    add_custom_command(TARGET ${EXE} POST_BUILD
+            COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${EXE}> ${EXE}.bin
+    )
+endforeach()
