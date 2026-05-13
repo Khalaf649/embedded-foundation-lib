@@ -36,6 +36,8 @@ set(ALL_PROJECT_SOURCES
         Button/Button.c Button/Button.h
         Motor/Motor.c
         Motor/Motor.h
+        Scheduler/Scheduler.c
+        Scheduler/Scheduler.h
 )
 
 set(MASTER_EXE "Elevator_Master")

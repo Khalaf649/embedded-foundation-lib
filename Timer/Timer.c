@@ -22,6 +22,8 @@ static TimerCallback_t Tim_AsyncCallbacks[6] = {NULL};
 static uint8 Timer_NvicIrq[6] = {0 , 0 ,28, 29, 30, 50};
 
 static const uint8 Timer_RccId[6] = {0, 0, 64, 65, 66, 67};
+// 0 = One-Shot, 1 = Periodic
+static boolean Tim_IsPeriodic[6] = {0};
 
 void Timer_Init(Tim_Instance_t TimerInstance, Tim_Prescaler_t Prescaler, uint16 AutoReload) {
     RCC_EnablePeripheral(Timer_RccId[TimerInstance]);
@@ -84,6 +86,29 @@ void Timer_DelayMsAsync(Tim_Instance_t TimerInstance, uint32 DelayMs, TimerCallb
 
     SET_BIT(timer->CR[0], TIMER_CR1_CEN); // Start counting
 }
+void Timer_StartPeriodic(Tim_Instance_t TimerInstance, uint32 PeriodMs, TimerCallback_t Callback) {
+    TimerType * timer = Timers[TimerInstance];
+    uint8 irqNum = Timer_NvicIrq[TimerInstance];
+
+    Tim_AsyncCallbacks[TimerInstance] = Callback;
+    Tim_IsPeriodic[TimerInstance] = 1;
+
+    timer->CR[0] = 0;
+
+    timer->PSC = 16 - 1;
+    timer->ARR = (PeriodMs * 1000) - 1;
+    timer->CNT = 0;
+
+    SET_BIT(timer->EGR, TIMER_EGR_UG);
+    timer->SR = 0;
+
+    CLR_BIT(timer->CR[0], TIMER_CR1_OPM);
+
+    SET_BIT(timer->DIER, TIMER_DIER_UIE);
+    Nvic_EnableInterrupt(irqNum);
+
+    SET_BIT(timer->CR[0], TIMER_CR1_CEN);
+}
 void Timer_ConfigChannel(Tim_Instance_t TimerInstance, Tim_Channel_t Channel,Tim_Prescaler_t Prescaler,
                           Tim_OutputCompareMode_t Mode, uint16 Period) {
     TimerType *timer = Timers[TimerInstance];
@@ -129,11 +154,13 @@ void Timer_SetCompareValue(Tim_Instance_t TimerInstance, Tim_Channel_t Channel, 
 static void Timer_HandleIrq(Tim_Instance_t TimerInstance) {
     TimerType * timer = Timers[TimerInstance];
 
-
     if (GET_BIT(timer->SR, TIMER_SR_UIF)) {
         timer->SR = 0; // Clear UIF
-        CLR_BIT(timer->DIER, TIMER_DIER_UIE); // Disable further IRQs
-        CLR_BIT(timer->CR[0], TIMER_CR1_CEN); // Stop counter
+
+        if (Tim_IsPeriodic[TimerInstance] == 0) {
+            CLR_BIT(timer->DIER, TIMER_DIER_UIE);
+            CLR_BIT(timer->CR[0], TIMER_CR1_CEN);
+        }
 
         if (Tim_AsyncCallbacks[TimerInstance] != 0) {
             Tim_AsyncCallbacks[TimerInstance]();

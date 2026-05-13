@@ -51,4 +51,6 @@ void Timer_ConfigChannel(Tim_Instance_t TimerInstance, Tim_Channel_t Channel,Tim
                          , Tim_OutputCompareMode_t Mode, uint16 Period);
 void Timer_DelayMsAsync(Tim_Instance_t TimerInstance, uint32 DelayMs, TimerCallback_t Callback);
 void Timer_SetCompareValue(Tim_Instance_t TimerInstance, Tim_Channel_t Channel, uint32 CompareValue);
+
+void Timer_StartPeriodic(Tim_Instance_t TimerInstance, uint32 PeriodMs, TimerCallback_t Callback);
 #endif //TIMER_H
