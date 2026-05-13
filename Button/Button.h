@@ -5,6 +5,7 @@
 #ifndef STM32_TEMPLATE_BUTTON_H
 #define STM32_TEMPLATE_BUTTON_H
 #include "../include/Std_Types.h"
+#include "../Usart/Usart.h"
 
 // ---------------------------------------------------------
 // System State Arrays (Visible to the FSM in main.c)

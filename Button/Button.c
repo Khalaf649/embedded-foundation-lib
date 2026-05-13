@@ -15,34 +15,90 @@ volatile boolean g_HallwayDownRequests[5] = {FALSE, FALSE, FALSE, FALSE, FALSE};
 // =========================================================
 // 1. CABIN CALLBACKS (PA0 -> PA3)
 // =========================================================
-void Cabin_F1_CB(void) { g_CabinRequests[1] = TRUE; }
-void Cabin_F2_CB(void) { g_CabinRequests[2] = TRUE; }
-void Cabin_F3_CB(void) { g_CabinRequests[3] = TRUE; }
-void Cabin_F4_CB(void) { g_CabinRequests[4] = TRUE; }
+void Cabin_F1_CB(void) {
+    g_CabinRequests[1] = TRUE;
+    Usart1_TransmitString("DEBUG: Cabin Button 1 Pressed - Floor 1 Request\r\n");
+}
+
+void Cabin_F2_CB(void) {
+    g_CabinRequests[2] = TRUE;
+    Usart1_TransmitString("DEBUG: Cabin Button 2 Pressed - Floor 2 Request\r\n");
+}
+
+void Cabin_F3_CB(void) {
+    g_CabinRequests[3] = TRUE;
+    Usart1_TransmitString("DEBUG: Cabin Button 3 Pressed - Floor 3 Request\r\n");
+}
+
+void Cabin_F4_CB(void) {
+    g_CabinRequests[4] = TRUE;
+    Usart1_TransmitString("DEBUG: Cabin Button 4 Pressed - Floor 4 Request\r\n");
+}
 
 // =========================================================
 // 2. SENSOR CALLBACKS (PB4 -> PB7)
 // =========================================================
-void Sensor_F1_CB(void) { g_Current_Floor_Sensor = 1; }
-void Sensor_F2_CB(void) { g_Current_Floor_Sensor = 2; }
-void Sensor_F3_CB(void) { g_Current_Floor_Sensor = 3; }
-void Sensor_F4_CB(void) { g_Current_Floor_Sensor = 4; }
+void Sensor_F1_CB(void) {
+    g_Current_Floor_Sensor = 1;
+    Usart1_TransmitString("DEBUG: [SENSOR] Elevator reached Floor 1\r\n");
+}
+
+void Sensor_F2_CB(void) {
+    g_Current_Floor_Sensor = 2;
+    Usart1_TransmitString("DEBUG: [SENSOR] Elevator reached Floor 2\r\n");
+}
+
+void Sensor_F3_CB(void) {
+    g_Current_Floor_Sensor = 3;
+    Usart1_TransmitString("DEBUG: [SENSOR] Elevator reached Floor 3\r\n");
+}
+
+void Sensor_F4_CB(void) {
+    g_Current_Floor_Sensor = 4;
+    Usart1_TransmitString("DEBUG: [SENSOR] Elevator reached Floor 4\r\n");
+}
 
 // =========================================================
 // 3. EMERGENCY CALLBACK (PD14)
 // =========================================================
-void Emergency_CB(void) { g_Emergency_Flag = TRUE; }
+void Emergency_CB(void) {
+    g_Emergency_Flag = TRUE;
+    Usart1_TransmitString("DEBUG: [!!! EMERGENCY !!!] STOP BUTTON ACTIVATED! ALL MOTORS SHOULD STOP!\r\n");
+}
 
 // =========================================================
 // 4. HALLWAY CALLBACKS (PC8 -> PC13) - MASTER ONLY
 // =========================================================
 #ifdef BUILD_AS_MASTER
-void Hallway_F1_Up_CB(void)   { g_HallwayUpRequests[1]   = TRUE; }
-void Hallway_F2_Up_CB(void)   { g_HallwayUpRequests[2]   = TRUE; }
-void Hallway_F2_Down_CB(void) { g_HallwayDownRequests[2] = TRUE; }
-void Hallway_F3_Up_CB(void)   { g_HallwayUpRequests[3]   = TRUE; }
-void Hallway_F3_Down_CB(void) { g_HallwayDownRequests[3] = TRUE; }
-void Hallway_F4_Down_CB(void) { g_HallwayDownRequests[4] = TRUE; }
+void Hallway_F1_Up_CB(void) {
+    g_HallwayUpRequests[1] = TRUE;
+    Usart1_TransmitString("DEBUG: [MASTER] Hallway Floor 1 - UP Pressed\r\n");
+}
+
+void Hallway_F2_Up_CB(void) {
+    g_HallwayUpRequests[2] = TRUE;
+    Usart1_TransmitString("DEBUG: [MASTER] Hallway Floor 2 - UP Pressed\r\n");
+}
+
+void Hallway_F2_Down_CB(void) {
+    g_HallwayDownRequests[2] = TRUE;
+    Usart1_TransmitString("DEBUG: [MASTER] Hallway Floor 2 - DOWN Pressed\r\n");
+}
+
+void Hallway_F3_Up_CB(void) {
+    g_HallwayUpRequests[3] = TRUE;
+    Usart1_TransmitString("DEBUG: [MASTER] Hallway Floor 3 - UP Pressed\r\n");
+}
+
+void Hallway_F3_Down_CB(void) {
+    g_HallwayDownRequests[3] = TRUE;
+    Usart1_TransmitString("DEBUG: [MASTER] Hallway Floor 3 - DOWN Pressed\r\n");
+}
+
+void Hallway_F4_Down_CB(void) {
+    g_HallwayDownRequests[4] = TRUE;
+    Usart1_TransmitString("DEBUG: [MASTER] Hallway Floor 4 - DOWN Pressed\r\n");
+}
 #endif
 
 // =========================================================
