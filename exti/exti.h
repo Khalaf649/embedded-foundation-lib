@@ -1,7 +1,7 @@
 // exti.h
 #ifndef EXTI_H_
 #define EXTI_H_
-
+#include "../NVIC/NVIC.h"
 
 
 typedef enum {

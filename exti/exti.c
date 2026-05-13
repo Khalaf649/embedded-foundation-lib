@@ -76,6 +76,8 @@ void Exti_Enable(EXTI_Line_t LineNumber)
     SET_BIT(EXTI->IMR, LineNumber);
 
     uint8 irqNumber = ExtiLineNumberNvicMap[LineNumber];
+    Nvic_EnableInterrupt(irqNumber);
+
     //SET_BIT(NVIC->ISER[irqNumber / 32], (irqNumber % 32));
 }
 
@@ -89,7 +91,7 @@ void Exti_Disable(EXTI_Line_t LineNumber)
 
     /* Disable in NVIC */
     uint8 irqNumber = ExtiLineNumberNvicMap[LineNumber];
-   // SET_BIT(NVIC->ICER[irqNumber / 32], (irqNumber % 32));
+    Nvic_DisableInterrupt(irqNumber);
 }
 
 

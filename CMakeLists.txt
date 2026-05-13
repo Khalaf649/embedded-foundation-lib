@@ -49,7 +49,9 @@ add_executable(${EXECUTABLE} ${SOURCE_LIST} ${STARTUP_BASE_DIR}/${SERIES_FOLDER}
         PWM/PWM.c
         PWM/PWM.h
         Fan/Fan.h
-        Fan/Fan.c)
+        Fan/Fan.c
+        Button/Button.c
+        Button/Button.h)
 # Include
 target_include_directories(${EXECUTABLE} PUBLIC ${INCLUDE_LIST})
 # Project symbols
