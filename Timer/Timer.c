@@ -9,6 +9,7 @@
 
 #include "Timer_Private.h"
 #include "../Nvic/Nvic.h"
+#include "../RCC/RCC.h"
 static TimerType* const Timers[6] = {
     NULL,
     NULL,
@@ -20,7 +21,10 @@ static TimerType* const Timers[6] = {
 static TimerCallback_t Tim_AsyncCallbacks[6] = {NULL};
 static uint8 Timer_NvicIrq[6] = {0 , 0 ,28, 29, 30, 50};
 
+static const uint8 Timer_RccId[6] = {0, 0, 64, 65, 66, 67};
+
 void Timer_Init(Tim_Instance_t TimerInstance, Tim_Prescaler_t Prescaler, uint16 AutoReload) {
+    RCC_EnablePeripheral(Timer_RccId[TimerInstance]);
     TimerType * timer = Timers[TimerInstance];
     timer->CR[0] = 0; // Reset timer // counter disable
     timer->PSC = Prescaler;
