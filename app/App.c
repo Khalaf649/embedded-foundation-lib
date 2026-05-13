@@ -41,30 +41,29 @@ void App_Init(void)
     Button_Init();
     Motor_Init();
 
+    // ADD THIS: Turn on the Master SPI Hardware
+    Spi2_Init_Master();
+
     Usart1_TransmitString("Hardware Initialized...\r\n");
 
     // ========================================================
-    // 1. تهيئة التايمر (أهم خطوة عشان الـ RCC يفتح الكهرباء)
-    // Prescaler = 15, AutoReload = 999 (بافتراض الكلوك 16MHz)
+    // 1. Timer 4: Motor Blinking (1000ms)
     // ========================================================
     Timer_Init(TIM_INSTANCE_4, 15, 999);
-
-    // ========================================================
-    // 2. تشغيل التايمر في وضع الـ Periodic وربطه بالـ Callback
-    // هيعد 1000 ملي ثانية بناءً على تظبيطة الـ Init
-    // ========================================================
     Timer_StartPeriodic(TIM_INSTANCE_4, 1000, App_BlinkCallback);
 
     Usart1_TransmitString("Timer 4 Started: Blinking LED every 1 second\r\n");
-
 
     // Init local state
     my_elevator_state.state = ELEV_IDLE;
     my_elevator_state.current_floor = 1;
 
-    // Set timer for 50ms synchronization loop
-    Timer_Init(TIM_INSTANCE_4, 15, 49); // Adjust AutoReload for 50ms
-    Timer_StartPeriodic(TIM_INSTANCE_4, 50, App_50ms_Tick);
+    // ========================================================
+    // 2. Timer 3: SPI Communication (50ms)
+    // We CANNOT use Timer 4 here, it is already busy!
+    // ========================================================
+    Timer_Init(TIM_INSTANCE_3, 15, 999);
+    Timer_StartPeriodic(TIM_INSTANCE_3, 50, App_50ms_Tick);
 
     Usart1_TransmitString("Elevator Master Node Initialized. SPI Sync @ 50ms\r\n");
 }
