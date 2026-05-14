@@ -53,7 +53,7 @@ add_executable(${MASTER_EXE} ${ALL_PROJECT_SOURCES}
         SPI/Spi.c
         SPI/Spi.h
         IPC/IPC.c
-        app/App_Slave.c)
+)
 target_include_directories(${MASTER_EXE} PUBLIC ${INCLUDE_LIST})
 
 target_compile_definitions(${MASTER_EXE} PUBLIC ${COMPILER_DEFINE} BUILD_AS_MASTER)
@@ -67,7 +67,7 @@ add_executable(${SLAVE_EXE} ${ALL_PROJECT_SOURCES}
         IPC/IPC.c
         SPI/Spi.h
         SPI/Spi.c
-        app/App_Slave.c)
+)
 target_include_directories(${SLAVE_EXE} PUBLIC ${INCLUDE_LIST})
 
 target_compile_definitions(${SLAVE_EXE} PUBLIC ${COMPILER_DEFINE})

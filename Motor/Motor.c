@@ -17,7 +17,7 @@ void Motor_Init(void) {
 
     GPIO_SetAlternateFunction(&motor_pin, GPIO_AF_2);
 
-    Pwm_Init(MOTOR_TIMER, MOTOR_CHANNEL, 15, 100);
+    Pwm_Init(MOTOR_TIMER, MOTOR_CHANNEL, 15, 100); // FOR ACHIEVING FREQ 10.5KHZ
     Pwm_Start(MOTOR_TIMER, MOTOR_CHANNEL);
 
     Motor_SetSpeed(MOTOR_REST);
