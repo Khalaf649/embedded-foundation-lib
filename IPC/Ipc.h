@@ -32,39 +32,14 @@
 // Number of consecutive failed validations before declaring a comm fault
 #define IPC_TIMEOUT_LIMIT   5U   // 5 × 50ms = 250ms
 
-typedef enum {
-    LIFT_STATE_IDLE        = 0x00,
-    LIFT_STATE_MOVING_UP   = 0x01,
-    LIFT_STATE_MOVING_DOWN = 0x02,
-    LIFT_STATE_DOOR_OPEN   = 0x03
-} Lift_State_t;
 
 
 
-/* --- 3. Floor Numbers (current_floor & target_floor) --- */
-typedef enum {
-    FLOOR_NONE = 0,
-    FLOOR_1    = 1,
-    FLOOR_2    = 2,
-    FLOOR_3    = 3,
-    FLOOR_4    = 4
-} Elevator_Floor_t;
 
-/* --- 4. Emergency Status (emergency) --- */
-typedef enum {
-    EMERGENCY_NORMAL = 0,
-    EMERGENCY_ACTIVE = 1
-} Emergency_Status_t;
 
-/* --- 5. Cabin Buttons Bitmask (cabin_buttons) --- */
 
-typedef enum {
-    CABIN_BTN_NONE   = 0x00,       // 0000 0000
-    CABIN_BTN_FLOOR1 = (1 << 0),   // 0000 0001
-    CABIN_BTN_FLOOR2 = (1 << 1),   // 0000 0010
-    CABIN_BTN_FLOOR3 = (1 << 2),   // 0000 0100
-    CABIN_BTN_FLOOR4 = (1 << 3)    // 0000 1000
-} Cabin_Buttons_Mask_t;
+
+
 
 // =========================================================
 // Packet struct
