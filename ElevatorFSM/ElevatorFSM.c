@@ -1,115 +1,160 @@
-//
-// Created by Khalaf on 14/05/2026.
-//
+/*
+ * ElevatorFSM.c — Full FSM implementation (rewritten from scratch)
+ *
+ * Corner cases handled:
+ *  - Emergency pre-empts ANY state; latched until explicit reset
+ *  - INDEPENDENT_MODE on SPI comm fault (cabin-only queue)
+ *  - Floor sensor values clamped to [1..4]; UART prints guarded
+ *  - Duplicate cabin requests deduplicated
+ *  - PWM ramp via RampState_t state machine (non-blocking)
+ *  - Queue overflow silently rejected (max 4 entries)
+ *  - Slave receives dispatcher target from IPC rx packet
+ *
+ * Volatile flags used:
+ *  g_CabinRequests[], g_Current_Floor_Sensor, g_Emergency_Flag,
+ *  g_tx_packet, g_rx_packet, g_comm_fault
+ *
+ * Driver API assumptions:
+ *  Motor_SetSpeed(), Motor_GetSpeed(), ENTER/EXIT_CRITICAL(),
+ *  Usart1_TransmitString(), Usart1_TransmitByte()
+ */
 
 #include "ElevatorFSM.h"
-#include "../Ipc/Ipc.h"
+#include "../IPC/Ipc.h"
 #include "../Motor/Motor.h"
 #include "../Button/Button.h"
-#include "../Nvic/Nvic.h"        /* ENTER_CRITICAL / EXIT_CRITICAL */
+#include "../Nvic/Nvic.h"
+#include "../Usart/Usart.h"
 
 /* ================================================================
- * Private helpers — forward declarations
+ * Forward declarations
  * ================================================================ */
 static void     FSM_EnterIdle(ElevatorFSM_t *fsm);
 static void     FSM_EnterMoving(ElevatorFSM_t *fsm);
 static void     FSM_EnterDoorsOpen(ElevatorFSM_t *fsm);
 static void     FSM_EnterEmergency(ElevatorFSM_t *fsm);
+static void     FSM_EnterIndependent(ElevatorFSM_t *fsm);
 static void     FSM_HandleIdle(ElevatorFSM_t *fsm);
-static void     FSM_HandleMovingUp(ElevatorFSM_t *fsm);
-static void     FSM_HandleMovingDown(ElevatorFSM_t *fsm);
+static void     FSM_HandleMoving(ElevatorFSM_t *fsm);
 static void     FSM_HandleDoorsOpen(ElevatorFSM_t *fsm);
 static void     FSM_HandleEmergency(ElevatorFSM_t *fsm);
+static void     FSM_HandleIndependent(ElevatorFSM_t *fsm);
 static void     FSM_CollectCabinRequests(ElevatorFSM_t *fsm);
 static void     FSM_PublishToIpc(ElevatorFSM_t *fsm);
+static void     FSM_UpdateFloorFromSensor(ElevatorFSM_t *fsm);
 static boolean  FSM_HasQueuedFloor(const ElevatorFSM_t *fsm);
-static Floor_t  FSM_NextFloorInDirection(ElevatorFSM_t *fsm);
+static Floor_t  FSM_PickNextTarget(ElevatorFSM_t *fsm);
 static void     FSM_DequeueFloor(ElevatorFSM_t *fsm, Floor_t floor);
 static boolean  FSM_IsFloorQueued(const ElevatorFSM_t *fsm, Floor_t floor);
+static void     FSM_StartRamp(ElevatorFSM_t *fsm, RampDirection_t dir);
+static void     FSM_SafePrintFloor(Floor_t floor);
+static boolean  FSM_IsValidFloor(Floor_t floor);
 
 /* ================================================================
  * ElevatorFSM_Init
  * ================================================================ */
 void ElevatorFSM_Init(ElevatorFSM_t *fsm) {
-    fsm->state            = LIFT_STATE_IDLE;
-    fsm->current_floor    = FLOOR_1;        /* Assume start at ground floor  */
-    fsm->target_floor     = FLOOR_NONE;
-    fsm->queue_head       = 0;
-    fsm->queue_size       = 0;
-    fsm->door_timer_ms    = 0;
-    fsm->emergency_active = FALSE;
+    fsm->state                = LIFT_STATE_IDLE;
+    fsm->pre_independent_state = LIFT_STATE_IDLE;
+    fsm->current_floor        = FLOOR_1;
+    fsm->target_floor         = FLOOR_NONE;
+    fsm->queue_size           = 0;
+    fsm->door_timer_ms        = 0;
+    fsm->emergency_active     = FALSE;
+    fsm->independent_mode     = FALSE;
+    fsm->ramp.direction       = RAMP_NONE;
+    fsm->ramp.step_count      = 0;
+    fsm->ramp.target_duty     = 0;
+    fsm->ramp.current_duty    = 0;
 
-    for (uint8 i = 0; i < 5; i++) {
-        fsm->queued_floors[i] = FLOOR_NONE;
+    for (uint8 i = 0; i < MAX_QUEUE_SIZE; i++) {
+        fsm->queue[i] = FLOOR_NONE;
     }
 
-    /* Sync floor sensor — if a sensor fired before FSM init, capture it */
-    if (g_Current_Floor_Sensor >= 1 && g_Current_Floor_Sensor <= 4) {
-        fsm->current_floor = (Floor_t)g_Current_Floor_Sensor;
+    /* Sync from sensor if it fired before init */
+    ENTER_CRITICAL();
+    uint8 sensor = g_Current_Floor_Sensor;
+    EXIT_CRITICAL();
+    if (sensor >= 1 && sensor <= NUM_FLOORS) {
+        fsm->current_floor = (Floor_t)sensor;
     }
 
     Motor_SetSpeed(MOTOR_REST);
     FSM_PublishToIpc(fsm);
 
-    Usart1_TransmitString("FSM: Initialized at floor ");
-    char buf[4] = {'0' + (char)fsm->current_floor, '\r', '\n', '\0'};
-    Usart1_TransmitString(buf);
+    Usart1_TransmitString("FSM: Init at floor ");
+    FSM_SafePrintFloor(fsm->current_floor);
+    Usart1_TransmitString("\r\n");
 }
 
 /* ================================================================
- * ElevatorFSM_Tick  — called every ELEVATOR_FSM_PERIOD_MS (10 ms)
+ * ElevatorFSM_Tick — called every 10ms
  * ================================================================ */
 void ElevatorFSM_Tick(ElevatorFSM_t *fsm) {
 
     /* ── 1. Emergency check — highest priority, any state ── */
-    if (g_Emergency_Flag && !fsm->emergency_active) {
+    ENTER_CRITICAL();
+    boolean emg = g_Emergency_Flag;
+    EXIT_CRITICAL();
+
+    if (emg && !fsm->emergency_active) {
         FSM_EnterEmergency(fsm);
         FSM_PublishToIpc(fsm);
         return;
     }
 
-    /* ── 2. Update current floor from sensor (any state) ── */
-    ENTER_CRITICAL();
-    uint8 sensor_snapshot = g_Current_Floor_Sensor;
-    EXIT_CRITICAL();
+    /* ── 2. Update current floor from sensor ── */
+    FSM_UpdateFloorFromSensor(fsm);
 
-    if (sensor_snapshot >= 1 && sensor_snapshot <= 4) {
-        fsm->current_floor = (Floor_t)sensor_snapshot;
-    }
-
-    /* ── 3. Collect new cabin button presses ── */
+    /* ── 3. Collect cabin button presses ── */
     FSM_CollectCabinRequests(fsm);
 
-    /* ── 4. On Slave: check if Master assigned a new target via IPC ── */
+    /* ── 4. Check comm fault for INDEPENDENT_MODE ── */
+    if (g_comm_fault && !fsm->independent_mode && !fsm->emergency_active) {
+        FSM_EnterIndependent(fsm);
+    } else if (!g_comm_fault && fsm->independent_mode) {
+        /* Comm restored — exit independent mode */
+        fsm->independent_mode = FALSE;
+        fsm->state = fsm->pre_independent_state;
+        Usart1_TransmitString("FSM: Comm restored, exiting INDEPENDENT\r\n");
+    }
+
+    /* ── 5. Slave: check dispatcher target from IPC ── */
 #ifndef BUILD_AS_MASTER
-    if (!fsm->emergency_active) {
-        Floor_t ipc_target = (Floor_t)g_rx_packet.target_floor;
-        if (ipc_target >= FLOOR_1 && ipc_target <= FLOOR_4) {
+    if (!fsm->emergency_active && !fsm->independent_mode) {
+        ENTER_CRITICAL();
+        uint8 ipc_tgt = g_rx_packet.target_floor;
+        uint8 ipc_emg = g_rx_packet.emergency;
+        EXIT_CRITICAL();
+
+        if (ipc_emg == (uint8)EMERGENCY_STOP) {
+            FSM_EnterEmergency(fsm);
+            FSM_PublishToIpc(fsm);
+            return;
+        }
+
+        Floor_t ipc_target = (Floor_t)ipc_tgt;
+        if (FSM_IsValidFloor(ipc_target)) {
             if (!FSM_IsFloorQueued(fsm, ipc_target) &&
                 ipc_target != fsm->current_floor) {
                 ElevatorFSM_AssignTarget(fsm, ipc_target);
             }
         }
-        /* Propagate emergency from Master */
-        if (g_rx_packet.emergency == EMERGENCY_STOP) {
-            FSM_EnterEmergency(fsm);
-            FSM_PublishToIpc(fsm);
-            return;
-        }
     }
 #endif
 
-    /* ── 5. Dispatch to current state handler ── */
+    /* ── 6. State dispatch ── */
     switch (fsm->state) {
         case LIFT_STATE_IDLE:        FSM_HandleIdle(fsm);        break;
-        case LIFT_STATE_MOVING_UP:   FSM_HandleMovingUp(fsm);    break;
-        case LIFT_STATE_MOVING_DOWN: FSM_HandleMovingDown(fsm);  break;
+        case LIFT_STATE_MOVING_UP:   /* fall through */
+        case LIFT_STATE_MOVING_DOWN: FSM_HandleMoving(fsm);      break;
         case LIFT_STATE_DOORS_OPEN:  FSM_HandleDoorsOpen(fsm);   break;
         case LIFT_STATE_EMERGENCY:   FSM_HandleEmergency(fsm);   break;
-        default:                     FSM_EnterIdle(fsm);          break;
+        case LIFT_STATE_INDEPENDENT: FSM_HandleIndependent(fsm); break;
+        default:                     FSM_EnterIdle(fsm);         break;
     }
 
-    /* ── 6. Always publish updated state to IPC tx packet ── */
+    /* ── 7. Publish state to IPC ── */
     FSM_PublishToIpc(fsm);
 }
 
@@ -117,26 +162,77 @@ void ElevatorFSM_Tick(ElevatorFSM_t *fsm) {
  * ElevatorFSM_AssignTarget
  * ================================================================ */
 void ElevatorFSM_AssignTarget(ElevatorFSM_t *fsm, Floor_t floor) {
-    if (fsm->emergency_active)          return;
-    if (floor < FLOOR_1 || floor > FLOOR_4) return;
-    if (floor == fsm->current_floor &&
-        fsm->state == LIFT_STATE_IDLE)  return; /* Already here and idle */
-    if (FSM_IsFloorQueued(fsm, floor))  return; /* Already queued */
+    if (fsm->emergency_active)             return;
+    if (!FSM_IsValidFloor(floor))          return;
+    if (FSM_IsFloorQueued(fsm, floor))     return;
+
+    /* Already at this floor and idle — open doors instead */
+    if (floor == fsm->current_floor && fsm->state == LIFT_STATE_IDLE) {
+        FSM_EnterDoorsOpen(fsm);
+        return;
+    }
 
     ENTER_CRITICAL();
-    /* Enqueue: store floors in order of insertion.
-     * FSM_NextFloorInDirection picks the best one each time. */
-    if (fsm->queue_size < 4) {
-        fsm->queued_floors[fsm->queue_size] = floor;
+    if (fsm->queue_size < MAX_QUEUE_SIZE) {
+        fsm->queue[fsm->queue_size] = floor;
         fsm->queue_size++;
     }
 
-    /* If idle, immediately set target and start moving */
+    /* If idle, start moving immediately */
     if (fsm->state == LIFT_STATE_IDLE) {
         fsm->target_floor = floor;
         FSM_EnterMoving(fsm);
     }
     EXIT_CRITICAL();
+}
+
+/* ================================================================
+ * ElevatorFSM_RampTick — called every 50ms by scheduler
+ * ================================================================ */
+void ElevatorFSM_RampTick(ElevatorFSM_t *fsm) {
+    if (fsm->ramp.direction == RAMP_NONE) return;
+
+    fsm->ramp.step_count++;
+
+    if (fsm->ramp.direction == RAMP_UP) {
+        /* 0% → 20% at step 5, → 100% at step 10 */
+        if (fsm->ramp.step_count <= (ELEVATOR_RAMP_STEPS / 2)) {
+            fsm->ramp.current_duty = MOTOR_LOW_SPEED;
+        } else {
+            fsm->ramp.current_duty = MOTOR_HIGH_SPEED;
+        }
+    } else { /* RAMP_DOWN */
+        /* 100% → 20% at step 5, → 0% at step 10 */
+        if (fsm->ramp.step_count <= (ELEVATOR_RAMP_STEPS / 2)) {
+            fsm->ramp.current_duty = MOTOR_LOW_SPEED;
+        } else {
+            fsm->ramp.current_duty = MOTOR_REST;
+        }
+    }
+
+    Motor_SetSpeed((Motor_Speed_t)fsm->ramp.current_duty);
+
+    if (fsm->ramp.step_count >= ELEVATOR_RAMP_STEPS) {
+        Motor_SetSpeed((Motor_Speed_t)fsm->ramp.target_duty);
+        fsm->ramp.current_duty = fsm->ramp.target_duty;
+        fsm->ramp.direction    = RAMP_NONE;
+        fsm->ramp.step_count   = 0;
+    }
+}
+
+/* ================================================================
+ * ElevatorFSM_ResetEmergency
+ * ================================================================ */
+void ElevatorFSM_ResetEmergency(ElevatorFSM_t *fsm) {
+    if (!fsm->emergency_active) return;
+
+    ENTER_CRITICAL();
+    g_Emergency_Flag = FALSE;
+    EXIT_CRITICAL();
+
+    fsm->emergency_active = FALSE;
+    FSM_EnterIdle(fsm);
+    Usart1_TransmitString("FSM: Emergency RESET\r\n");
 }
 
 /* ================================================================
@@ -151,15 +247,21 @@ Floor_t ElevatorFSM_GetCurrentFloor(const ElevatorFSM_t *fsm) {
 Floor_t ElevatorFSM_GetTargetFloor(const ElevatorFSM_t *fsm) {
     return fsm->target_floor;
 }
+boolean ElevatorFSM_IsEmergency(const ElevatorFSM_t *fsm) {
+    return fsm->emergency_active;
+}
+boolean ElevatorFSM_IsIndependent(const ElevatorFSM_t *fsm) {
+    return fsm->independent_mode;
+}
 
 /* ================================================================
  * State entry functions
  * ================================================================ */
-
 static void FSM_EnterIdle(ElevatorFSM_t *fsm) {
     fsm->state        = LIFT_STATE_IDLE;
     fsm->target_floor = FLOOR_NONE;
     Motor_SetSpeed(MOTOR_REST);
+    fsm->ramp.direction = RAMP_NONE;
     Usart1_TransmitString("FSM: IDLE\r\n");
 }
 
@@ -168,27 +270,38 @@ static void FSM_EnterMoving(ElevatorFSM_t *fsm) {
 
     if ((uint8)fsm->target_floor > (uint8)fsm->current_floor) {
         fsm->state = LIFT_STATE_MOVING_UP;
-        Motor_SetSpeed(MOTOR_HIGH_SPEED);
-        Usart1_TransmitString("FSM: MOVING_UP\r\n");
+        Usart1_TransmitString("FSM: MOVING_UP to floor ");
     } else if ((uint8)fsm->target_floor < (uint8)fsm->current_floor) {
         fsm->state = LIFT_STATE_MOVING_DOWN;
-        Motor_SetSpeed(MOTOR_HIGH_SPEED);
-        Usart1_TransmitString("FSM: MOVING_DOWN\r\n");
+        Usart1_TransmitString("FSM: MOVING_DOWN to floor ");
     } else {
-        /* Already at target — open doors */
         FSM_EnterDoorsOpen(fsm);
+        return;
     }
+    FSM_SafePrintFloor(fsm->target_floor);
+    Usart1_TransmitString("\r\n");
+
+    /* Start PWM ramp up: 0% → 20% → 100% */
+    FSM_StartRamp(fsm, RAMP_UP);
 }
 
 static void FSM_EnterDoorsOpen(ElevatorFSM_t *fsm) {
     fsm->state         = LIFT_STATE_DOORS_OPEN;
     fsm->door_timer_ms = 0;
-    Motor_SetSpeed(MOTOR_REST);
 
-    /* Remove the served floor from the queue */
+    /* Dequeue served floor */
     FSM_DequeueFloor(fsm, fsm->current_floor);
 
-    Usart1_TransmitString("FSM: DOORS_OPEN\r\n");
+    /* Start PWM ramp down if motor is running */
+    if (Motor_GetSpeed() != MOTOR_REST) {
+        FSM_StartRamp(fsm, RAMP_DOWN);
+    } else {
+        Motor_SetSpeed(MOTOR_REST);
+    }
+
+    Usart1_TransmitString("FSM: DOORS_OPEN at floor ");
+    FSM_SafePrintFloor(fsm->current_floor);
+    Usart1_TransmitString("\r\n");
 }
 
 static void FSM_EnterEmergency(ElevatorFSM_t *fsm) {
@@ -196,69 +309,67 @@ static void FSM_EnterEmergency(ElevatorFSM_t *fsm) {
     fsm->emergency_active = TRUE;
     fsm->target_floor     = FLOOR_NONE;
     fsm->queue_size       = 0;
-    fsm->queue_head       = 0;
+    fsm->ramp.direction   = RAMP_NONE;
 
     Motor_SetSpeed(MOTOR_REST);
-    Usart1_TransmitString("FSM: EMERGENCY — ALL MOTION STOPPED\r\n");
+    Usart1_TransmitString("FSM: *** EMERGENCY STOP ***\r\n");
+}
+
+static void FSM_EnterIndependent(ElevatorFSM_t *fsm) {
+    fsm->pre_independent_state = fsm->state;
+    fsm->independent_mode      = TRUE;
+    fsm->state                 = LIFT_STATE_INDEPENDENT;
+    Usart1_TransmitString("FSM: INDEPENDENT_MODE (comm fault)\r\n");
 }
 
 /* ================================================================
- * State handler functions
+ * State handlers
  * ================================================================ */
-
 static void FSM_HandleIdle(ElevatorFSM_t *fsm) {
-    /* If we have a queued floor (e.g. cabin button pressed while idle),
-     * pick the best next target and start moving. */
     if (FSM_HasQueuedFloor(fsm)) {
-        fsm->target_floor = FSM_NextFloorInDirection(fsm);
+        fsm->target_floor = FSM_PickNextTarget(fsm);
         if (fsm->target_floor != FLOOR_NONE) {
-            FSM_EnterMoving(fsm);
+            if (fsm->target_floor == fsm->current_floor) {
+                FSM_EnterDoorsOpen(fsm);
+            } else {
+                FSM_EnterMoving(fsm);
+            }
         }
-    }
-    /* On Master, comm fault: Dispatcher will push targets directly via
-     * ElevatorFSM_AssignTarget, so no special handling needed here. */
-}
-
-static void FSM_HandleMovingUp(ElevatorFSM_t *fsm) {
-    /* Slow down one floor before target */
-    if (fsm->target_floor != FLOOR_NONE) {
-        uint8 floors_away = (uint8)fsm->target_floor - (uint8)fsm->current_floor;
-        if (floors_away <= 1) {
-            Motor_SetSpeed(MOTOR_LOW_SPEED);
-        }
-    }
-
-    /* Check if we have reached the target floor */
-    if (fsm->current_floor == fsm->target_floor) {
-        FSM_EnterDoorsOpen(fsm);
     }
 }
 
-static void FSM_HandleMovingDown(ElevatorFSM_t *fsm) {
-    /* Slow down one floor before target */
-    if (fsm->target_floor != FLOOR_NONE) {
-        uint8 floors_away = (uint8)fsm->current_floor - (uint8)fsm->target_floor;
-        if (floors_away <= 1) {
-            Motor_SetSpeed(MOTOR_LOW_SPEED);
-        }
+static void FSM_HandleMoving(ElevatorFSM_t *fsm) {
+    if (fsm->target_floor == FLOOR_NONE) {
+        FSM_EnterIdle(fsm);
+        return;
     }
 
-    /* Check if we have reached the target floor */
+    /* Slow down when 1 floor away (approaching) */
+    uint8 cur = (uint8)fsm->current_floor;
+    uint8 tgt = (uint8)fsm->target_floor;
+    uint8 dist = (cur > tgt) ? (cur - tgt) : (tgt - cur);
+
+    if (dist <= 1 && fsm->ramp.direction == RAMP_NONE) {
+        Motor_SetSpeed(MOTOR_LOW_SPEED);
+    }
+
+    /* Arrived at target floor */
     if (fsm->current_floor == fsm->target_floor) {
         FSM_EnterDoorsOpen(fsm);
     }
 }
 
 static void FSM_HandleDoorsOpen(ElevatorFSM_t *fsm) {
-    /* Accumulate time spent with doors open.
-     * Called every ELEVATOR_FSM_PERIOD_MS. */
     fsm->door_timer_ms += ELEVATOR_FSM_PERIOD_MS;
 
     if (fsm->door_timer_ms >= ELEVATOR_DOORS_OPEN_MS) {
-        /* Doors closing — pick next queued floor if any */
         if (FSM_HasQueuedFloor(fsm)) {
-            fsm->target_floor = FSM_NextFloorInDirection(fsm);
-            FSM_EnterMoving(fsm);
+            fsm->target_floor = FSM_PickNextTarget(fsm);
+            if (fsm->target_floor != FLOOR_NONE) {
+                FSM_EnterMoving(fsm);
+            } else {
+                FSM_EnterIdle(fsm);
+            }
         } else {
             FSM_EnterIdle(fsm);
         }
@@ -266,33 +377,64 @@ static void FSM_HandleDoorsOpen(ElevatorFSM_t *fsm) {
 }
 
 static void FSM_HandleEmergency(ElevatorFSM_t *fsm) {
-    /* Motor already stopped in EnterEmergency.
-     * Latched until board reset — nothing to do per tick. */
+    /* Latched — do nothing until explicit reset */
     (void)fsm;
 }
 
+static void FSM_HandleIndependent(ElevatorFSM_t *fsm) {
+    /* In independent mode, serve cabin-only queue like IDLE/MOVING */
+    if (fsm->target_floor == FLOOR_NONE && FSM_HasQueuedFloor(fsm)) {
+        fsm->target_floor = FSM_PickNextTarget(fsm);
+        if (fsm->target_floor != FLOOR_NONE) {
+            if (fsm->target_floor == fsm->current_floor) {
+                FSM_EnterDoorsOpen(fsm);
+                fsm->state = LIFT_STATE_INDEPENDENT; /* Stay independent */
+            } else {
+                FSM_EnterMoving(fsm);
+                fsm->state = LIFT_STATE_INDEPENDENT; /* Stay independent */
+            }
+        }
+    }
+
+    /* Check arrival */
+    if (fsm->target_floor != FLOOR_NONE &&
+        fsm->current_floor == fsm->target_floor) {
+        Motor_SetSpeed(MOTOR_REST);
+        FSM_DequeueFloor(fsm, fsm->current_floor);
+        fsm->target_floor = FLOOR_NONE;
+        Usart1_TransmitString("FSM(IND): Arrived at floor ");
+        FSM_SafePrintFloor(fsm->current_floor);
+        Usart1_TransmitString("\r\n");
+    }
+}
+
 /* ================================================================
- * Private utility functions
+ * Private utilities
  * ================================================================ */
 
-/* Scan g_CabinRequests and enqueue any newly pressed floors */
+static void FSM_UpdateFloorFromSensor(ElevatorFSM_t *fsm) {
+    ENTER_CRITICAL();
+    uint8 sensor = g_Current_Floor_Sensor;
+    EXIT_CRITICAL();
+
+    if (sensor >= 1 && sensor <= NUM_FLOORS) {
+        fsm->current_floor = (Floor_t)sensor;
+    }
+}
+
 static void FSM_CollectCabinRequests(ElevatorFSM_t *fsm) {
-    for (uint8 floor = 1; floor <= 4; floor++) {
+    for (uint8 f = 1; f <= NUM_FLOORS; f++) {
         ENTER_CRITICAL();
-        boolean pressed = g_CabinRequests[floor];
-        if (pressed) {
-            g_CabinRequests[floor] = FALSE; /* Consume the request */
-        }
+        boolean pressed = g_CabinRequests[f];
+        if (pressed) g_CabinRequests[f] = FALSE;
         EXIT_CRITICAL();
 
         if (pressed) {
-            ElevatorFSM_AssignTarget(fsm, (Floor_t)floor);
+            ElevatorFSM_AssignTarget(fsm, (Floor_t)f);
         }
     }
 }
 
-/* Build and write all fields of g_tx_packet from current FSM state.
- * Called at the end of every tick. */
 static void FSM_PublishToIpc(ElevatorFSM_t *fsm) {
     ENTER_CRITICAL();
 
@@ -304,90 +446,72 @@ static void FSM_PublishToIpc(ElevatorFSM_t *fsm) {
                                     ? (uint8)EMERGENCY_STOP
                                     : (uint8)EMERGENCY_NORMAL;
 
-    /* Pack cabin request queue into bitmask */
-    uint8 btn_mask = CABIN_BTN_NONE;
+    /* Pack cabin queue into bitmask */
+    uint8 mask = CABIN_BTN_NONE;
     for (uint8 i = 0; i < fsm->queue_size; i++) {
-        uint8 f = (uint8)fsm->queued_floors[i];
-        if (f >= 1 && f <= 4) {
-            btn_mask |= (1U << (f - 1));
+        uint8 fl = (uint8)fsm->queue[i];
+        if (fl >= 1 && fl <= NUM_FLOORS) {
+            mask |= (1U << (fl - 1));
         }
     }
-    g_tx_packet.cabin_buttons = btn_mask;
+    g_tx_packet.cabin_buttons = mask;
 
     EXIT_CRITICAL();
 }
 
-/* Returns TRUE if there is at least one floor in the queue */
 static boolean FSM_HasQueuedFloor(const ElevatorFSM_t *fsm) {
-    return (fsm->queue_size > 0);
+    return (fsm->queue_size > 0) ? TRUE : FALSE;
 }
 
-/* Pick the next floor to serve using directional scan (SCAN/elevator algorithm):
- *  - If moving up  : lowest queued floor ABOVE current (or above target) first.
- *  - If moving down: highest queued floor BELOW current first.
- *  - If idle       : closest queued floor. */
-static Floor_t FSM_NextFloorInDirection(ElevatorFSM_t *fsm) {
+/* SCAN algorithm: prefer floors in current direction, reverse at end */
+static Floor_t FSM_PickNextTarget(ElevatorFSM_t *fsm) {
     if (fsm->queue_size == 0) return FLOOR_NONE;
 
-    Floor_t best    = FLOOR_NONE;
-    uint8   ref     = (uint8)fsm->current_floor;
+    Floor_t best = FLOOR_NONE;
+    uint8 ref = (uint8)fsm->current_floor;
 
-    if (fsm->state == LIFT_STATE_MOVING_UP ||
-        (fsm->state == LIFT_STATE_IDLE &&
-         fsm->target_floor != FLOOR_NONE &&
-         (uint8)fsm->target_floor > ref)) {
+    if (fsm->state == LIFT_STATE_MOVING_UP || fsm->state == LIFT_STATE_INDEPENDENT) {
         /* Prefer lowest floor above current */
         for (uint8 i = 0; i < fsm->queue_size; i++) {
-            uint8 f = (uint8)fsm->queued_floors[i];
+            uint8 f = (uint8)fsm->queue[i];
             if (f > ref) {
-                if (best == FLOOR_NONE || f < (uint8)best) {
-                    best = (Floor_t)f;
-                }
+                if (best == FLOOR_NONE || f < (uint8)best) best = (Floor_t)f;
             }
         }
         if (best == FLOOR_NONE) {
-            /* No floors above — reverse: pick highest floor below */
+            /* Reverse: highest floor below */
             for (uint8 i = 0; i < fsm->queue_size; i++) {
-                uint8 f = (uint8)fsm->queued_floors[i];
+                uint8 f = (uint8)fsm->queue[i];
                 if (f < ref) {
-                    if (best == FLOOR_NONE || f > (uint8)best) {
-                        best = (Floor_t)f;
-                    }
+                    if (best == FLOOR_NONE || f > (uint8)best) best = (Floor_t)f;
+                }
+            }
+        }
+    } else if (fsm->state == LIFT_STATE_MOVING_DOWN) {
+        /* Prefer highest floor below current */
+        for (uint8 i = 0; i < fsm->queue_size; i++) {
+            uint8 f = (uint8)fsm->queue[i];
+            if (f < ref) {
+                if (best == FLOOR_NONE || f > (uint8)best) best = (Floor_t)f;
+            }
+        }
+        if (best == FLOOR_NONE) {
+            for (uint8 i = 0; i < fsm->queue_size; i++) {
+                uint8 f = (uint8)fsm->queue[i];
+                if (f > ref) {
+                    if (best == FLOOR_NONE || f < (uint8)best) best = (Floor_t)f;
                 }
             }
         }
     } else {
-        /* Moving down or idle: prefer highest floor below current */
-        for (uint8 i = 0; i < fsm->queue_size; i++) {
-            uint8 f = (uint8)fsm->queued_floors[i];
-            if (f < ref) {
-                if (best == FLOOR_NONE || f > (uint8)best) {
-                    best = (Floor_t)f;
-                }
-            }
-        }
-        if (best == FLOOR_NONE) {
-            /* No floors below — reverse: pick lowest floor above */
-            for (uint8 i = 0; i < fsm->queue_size; i++) {
-                uint8 f = (uint8)fsm->queued_floors[i];
-                if (f > ref) {
-                    if (best == FLOOR_NONE || f < (uint8)best) {
-                        best = (Floor_t)f;
-                    }
-                }
-            }
-        }
-    }
-
-    /* Idle with no direction preference: pick closest */
-    if (fsm->state == LIFT_STATE_IDLE && best == FLOOR_NONE) {
+        /* IDLE: pick closest */
         uint8 min_dist = 0xFF;
         for (uint8 i = 0; i < fsm->queue_size; i++) {
-            uint8 f    = (uint8)fsm->queued_floors[i];
-            uint8 dist = (f > ref) ? (f - ref) : (ref - f);
-            if (dist < min_dist) {
-                min_dist = dist;
-                best     = (Floor_t)f;
+            uint8 f = (uint8)fsm->queue[i];
+            uint8 d = (f > ref) ? (f - ref) : (ref - f);
+            if (d < min_dist) {
+                min_dist = d;
+                best = (Floor_t)f;
             }
         }
     }
@@ -395,25 +519,55 @@ static Floor_t FSM_NextFloorInDirection(ElevatorFSM_t *fsm) {
     return best;
 }
 
-/* Remove a specific floor from the queue */
 static void FSM_DequeueFloor(ElevatorFSM_t *fsm, Floor_t floor) {
     for (uint8 i = 0; i < fsm->queue_size; i++) {
-        if (fsm->queued_floors[i] == floor) {
-            /* Shift remaining entries left */
+        if (fsm->queue[i] == floor) {
             for (uint8 j = i; j < fsm->queue_size - 1; j++) {
-                fsm->queued_floors[j] = fsm->queued_floors[j + 1];
+                fsm->queue[j] = fsm->queue[j + 1];
             }
-            fsm->queued_floors[fsm->queue_size - 1] = FLOOR_NONE;
+            fsm->queue[fsm->queue_size - 1] = FLOOR_NONE;
             fsm->queue_size--;
             return;
         }
     }
 }
 
-/* Check whether a floor is already in the queue */
 static boolean FSM_IsFloorQueued(const ElevatorFSM_t *fsm, Floor_t floor) {
     for (uint8 i = 0; i < fsm->queue_size; i++) {
-        if (fsm->queued_floors[i] == floor) return TRUE;
+        if (fsm->queue[i] == floor) return TRUE;
     }
     return FALSE;
+}
+
+static void FSM_StartRamp(ElevatorFSM_t *fsm, RampDirection_t dir) {
+    fsm->ramp.direction  = dir;
+    fsm->ramp.step_count = 0;
+    if (dir == RAMP_UP) {
+        fsm->ramp.current_duty = MOTOR_REST;
+        fsm->ramp.target_duty  = MOTOR_HIGH_SPEED;
+        Motor_SetSpeed(MOTOR_LOW_SPEED); /* Immediate first step */
+    } else {
+        fsm->ramp.current_duty = MOTOR_HIGH_SPEED;
+        fsm->ramp.target_duty  = MOTOR_REST;
+        Motor_SetSpeed(MOTOR_LOW_SPEED);
+    }
+}
+
+/** Guard: only print floor if in valid range [1..4]; else print '?' */
+static void FSM_SafePrintFloor(Floor_t floor) {
+    uint8 f = (uint8)floor;
+    if (f >= 1 && f <= NUM_FLOORS) {
+        char c = (char)('0' + f);
+        Usart1_TransmitByte((uint8)c);
+    } else {
+        Usart1_TransmitByte((uint8)'?');
+        Usart1_TransmitString("[ERR:floor=");
+        char c = (char)('0' + (f % 10));
+        Usart1_TransmitByte((uint8)c);
+        Usart1_TransmitString("]");
+    }
+}
+
+static boolean FSM_IsValidFloor(Floor_t floor) {
+    return ((uint8)floor >= 1 && (uint8)floor <= NUM_FLOORS) ? TRUE : FALSE;
 }

@@ -1,165 +1,210 @@
-//
-// Dispatcher.c
-// Master-only hallway call dispatcher.
-//
-// Each hallway call is a (floor, direction) pair.
-// For every pending call the Dispatcher scores both elevators using the
-// priority table from the project spec, then assigns the higher-scoring one.
-//
-// Score function for one elevator against one call:
-//
-//   IMMEDIATE     : elevator.current == call.floor && elevator.state == IDLE
-//   PERFECT_MATCH : elevator is moving TOWARD call.floor in the SAME direction
-//                   and has NOT yet passed it
-//   PASSED_MATCH  : elevator is moving in the SAME direction but already passed floor
-//   IDLE          : elevator is IDLE (not at floor — that is IMMEDIATE)
-//   OPPOSITE_DIR  : elevator is moving AWAY from the call direction
-//   NO_MATCH      : elevator is in EMERGENCY — cannot be assigned
-//
-// Tie-breaking: when both elevators have the same score, choose the one
-// that is physically closer (fewer floors away) to minimise wait time.
-//
+/*
+ * Dispatcher.c — Master-only hallway call dispatcher (rewritten from scratch)
+ *
+ * Priority algorithm (in order):
+ *  1. COMM FAULT   — all calls to Elevator A; Slave = INDEPENDENT
+ *  2. IMMEDIATE    — elevator IDLE and AT call_floor
+ *  3. PERFECT MATCH— moving TOWARD call_floor in SAME direction
+ *  4. PASSED MATCH — same direction, already passed call_floor
+ *  5. OPPOSITE DIR — moving AWAY; excluded until path complete
+ *  6. IDLE NEAREST — closest idle elevator; tie-break: prefer A
+ *
+ * Corner cases:
+ *  - Both EMERGENCY: queue call, serve on recovery
+ *  - Duplicate call: deduplicated via pending table
+ *  - EMERGENCY mid-travel: re-dispatch that call
+ *  - Slave INDEPENDENT → reassign unserved calls to A
+ *  - Invalid call_floor: log error, discard
+ *  - Stale SPI snapshot (>150ms): treat as comm fault
+ */
 
 #ifdef BUILD_AS_MASTER
 
 #include "Dispatcher.h"
-#include "../Ipc/Ipc.h"
+#include "../IPC/Ipc.h"
 #include "../Button/Button.h"
-#include "../Nvic/Nvic.h"   /* ENTER_CRITICAL / EXIT_CRITICAL */
+#include "../Nvic/Nvic.h"
 #include "../Usart/Usart.h"
+#include "../Scheduler/Scheduler.h"
 
 /* ================================================================
  * Private state
  * ================================================================ */
-static ElevatorFSM_t *s_fsm_a = NULL;   /* Elevator A — local (Master board)  */
-static ElevatorFSM_t *s_fsm_b = NULL;   /* Elevator B — remote (Slave board)  */
-
-/* Shadow of the last target we sent to Slave via IPC.
- * Prevents re-sending the same assignment every tick. */
-static Floor_t s_last_slave_target = FLOOR_NONE;
+static ElevatorFSM_t  *s_fsm_a = (void*)0;       /* Local elevator (A) */
+static PendingCall_t    s_calls[MAX_PENDING_CALLS]; /* Pending call table */
+static uint8            s_call_count = 0;
+static Floor_t          s_last_slave_target = FLOOR_NONE;
+static uint32           s_last_good_spi_tick = 0;   /* Tick of last valid rx */
 
 /* ================================================================
- * Private helpers — forward declarations
+ * Forward declarations
  * ================================================================ */
-static uint8   Dispatcher_Score(LiftState_t state, Floor_t current,
-                                Floor_t target,    Floor_t call_floor,
-                                CallDirection_t call_dir);
-static uint8   Dispatcher_Distance(Floor_t a, Floor_t b);
-static void    Dispatcher_ProcessCall(Floor_t call_floor, CallDirection_t dir);
-static boolean Dispatcher_ElevatorAvailable(LiftState_t state);
+static uint8   Score_Elevator(LiftState_t state, Floor_t current,
+                              Floor_t target, Floor_t call_floor,
+                              CallDirection_t call_dir);
+static uint8   Floor_Distance(Floor_t a, Floor_t b);
+static void    Process_Call(Floor_t call_floor, CallDirection_t dir);
+static boolean Is_Call_Pending(Floor_t floor, CallDirection_t dir);
+static void    Add_Pending_Call(Floor_t floor, CallDirection_t dir);
+static void    SafePrintFloor(Floor_t floor);
 
 /* ================================================================
  * Dispatcher_Init
  * ================================================================ */
-void Dispatcher_Init(ElevatorFSM_t *fsm_a, ElevatorFSM_t *fsm_b) {
-    s_fsm_a            = fsm_a;
-    s_fsm_b            = fsm_b;
+void Dispatcher_Init(ElevatorFSM_t *fsm_a) {
+    s_fsm_a             = fsm_a;
+    s_call_count        = 0;
     s_last_slave_target = FLOOR_NONE;
+    s_last_good_spi_tick = Scheduler_GetTick();
+
+    for (uint8 i = 0; i < MAX_PENDING_CALLS; i++) {
+        s_calls[i].active = FALSE;
+    }
 }
 
 /* ================================================================
- * Dispatcher_Tick — called every 50 ms by the scheduler
- *
- * Scans all six hallway buttons (U1, U2, D2, U3, D3, D4).
- * For each pending call, runs the priority algorithm and dispatches.
+ * Dispatcher_Tick — called every 10ms
  * ================================================================ */
 void Dispatcher_Tick(void) {
-    /* ── Comm Fault mode ──
-     * Slave has gone silent. Master takes ALL hallway calls for itself.
-     * Slave should have entered independent mode (it detects comm fault
-     * via its own IPC timeout counter and serves cabin-only requests). */
-    if (g_comm_fault) {
-        /* Process all hallway calls on Master only */
-        for (uint8 floor = 1; floor <= 4; floor++) {
-            boolean up_req, down_req;
-
-            ENTER_CRITICAL();
-            up_req   = g_HallwayUpRequests[floor];
-            down_req = g_HallwayDownRequests[floor];
-            if (up_req)   g_HallwayUpRequests[floor]   = FALSE;
-            if (down_req) g_HallwayDownRequests[floor]  = FALSE;
-            EXIT_CRITICAL();
-
-            if (up_req)   Dispatcher_AssignToA((Floor_t)floor);
-            if (down_req) Dispatcher_AssignToA((Floor_t)floor);
-        }
-        return;
+    /* ── Update SPI age tracking ── */
+    if (!g_comm_fault) {
+        s_last_good_spi_tick = Scheduler_GetTick();
     }
 
-    /* ── Normal mode ──
-     * Read Slave's current state from g_rx_packet (refreshed by Ipc_Sync). */
-    LiftState_t slave_state   = (LiftState_t)g_rx_packet.lift_state;
-    Floor_t     slave_current = (Floor_t)g_rx_packet.current_floor;
-    Floor_t     slave_target  = (Floor_t)g_rx_packet.target_floor;
+    uint32 now = Scheduler_GetTick();
+    boolean spi_stale = ((now - s_last_good_spi_tick) > DISPATCHER_SPI_MAX_AGE_MS)
+                        ? TRUE : FALSE;
+    boolean use_comm_fault = (g_comm_fault || spi_stale) ? TRUE : FALSE;
 
-    /* Slave in emergency — do not assign to it */
-    if (slave_state == LIFT_STATE_EMERGENCY ||
-        g_rx_packet.emergency == EMERGENCY_STOP) {
-        /* Degrade: all calls go to Master's elevator */
-        for (uint8 floor = 1; floor <= 4; floor++) {
-            boolean up_req, down_req;
-            ENTER_CRITICAL();
-            up_req   = g_HallwayUpRequests[floor];
-            down_req = g_HallwayDownRequests[floor];
-            if (up_req)   g_HallwayUpRequests[floor]   = FALSE;
-            if (down_req) g_HallwayDownRequests[floor]  = FALSE;
-            EXIT_CRITICAL();
-            if (up_req)   Dispatcher_AssignToA((Floor_t)floor);
-            if (down_req) Dispatcher_AssignToA((Floor_t)floor);
-        }
-        return;
+    /* ── Check for elevator-in-EMERGENCY reassignment ── */
+    if (ElevatorFSM_GetState(s_fsm_a) == LIFT_STATE_EMERGENCY) {
+        Dispatcher_ReassignCalls(0); /* Reassign calls from A */
     }
 
-    /* ── Process each hallway call independently ── */
-    /* Hallway calls that exist:
-     *   UP:   floor 1, 2, 3  (cannot go UP from floor 4)
-     *   DOWN: floor 2, 3, 4  (cannot go DOWN from floor 1)
-     */
+    /* Check slave emergency from IPC */
+    ENTER_CRITICAL();
+    uint8 slave_emg = g_rx_packet.emergency;
+    EXIT_CRITICAL();
 
-    /* UP calls */
+    if (slave_emg == (uint8)EMERGENCY_STOP || use_comm_fault) {
+        Dispatcher_ReassignCalls(1); /* Reassign calls from B */
+    }
+
+    /* ── Consume hallway button flags ── */
+    /* UP calls: floors 1, 2, 3 */
     for (uint8 floor = 1; floor <= 3; floor++) {
-        boolean up_req;
         ENTER_CRITICAL();
-        up_req = g_HallwayUpRequests[floor];
+        boolean up_req = g_HallwayUpRequests[floor];
         if (up_req) g_HallwayUpRequests[floor] = FALSE;
         EXIT_CRITICAL();
+
         if (up_req) {
-            Dispatcher_ProcessCall((Floor_t)floor, CALL_DIR_UP);
+            if ((Floor_t)floor < FLOOR_1 || (Floor_t)floor > FLOOR_4) {
+                Usart1_TransmitString("DISPATCH: ERR invalid floor\r\n");
+                continue;
+            }
+            if (!Is_Call_Pending((Floor_t)floor, CALL_DIR_UP)) {
+                Add_Pending_Call((Floor_t)floor, CALL_DIR_UP);
+            }
         }
     }
 
-    /* DOWN calls */
+    /* DOWN calls: floors 2, 3, 4 */
     for (uint8 floor = 2; floor <= 4; floor++) {
-        boolean down_req;
         ENTER_CRITICAL();
-        down_req = g_HallwayDownRequests[floor];
+        boolean down_req = g_HallwayDownRequests[floor];
         if (down_req) g_HallwayDownRequests[floor] = FALSE;
         EXIT_CRITICAL();
+
         if (down_req) {
-            Dispatcher_ProcessCall((Floor_t)floor, CALL_DIR_DOWN);
+            if ((Floor_t)floor < FLOOR_1 || (Floor_t)floor > FLOOR_4) {
+                Usart1_TransmitString("DISPATCH: ERR invalid floor\r\n");
+                continue;
+            }
+            if (!Is_Call_Pending((Floor_t)floor, CALL_DIR_DOWN)) {
+                Add_Pending_Call((Floor_t)floor, CALL_DIR_DOWN);
+            }
         }
     }
 
-    /* ── Suppress slave target change — only send when it changes ── */
-    (void)slave_state;
-    (void)slave_current;
-    (void)slave_target;
+    /* ── Process unassigned pending calls ── */
+    for (uint8 i = 0; i < s_call_count; i++) {
+        if (!s_calls[i].active) continue;
+        if (s_calls[i].assigned) continue; /* Already dispatched */
+
+        if (use_comm_fault) {
+            /* COMM FAULT: all calls → Elevator A */
+            LiftState_t a_state = ElevatorFSM_GetState(s_fsm_a);
+            if (a_state != LIFT_STATE_EMERGENCY) {
+                Dispatcher_AssignToA(s_calls[i].floor);
+                s_calls[i].assigned    = TRUE;
+                s_calls[i].assigned_to = 0;
+            }
+            /* If A is also in emergency, leave call pending */
+        } else {
+            Process_Call(s_calls[i].floor, s_calls[i].direction);
+            /* Mark as assigned after Process_Call handles it */
+        }
+    }
+
+    /* ── Garbage-collect completed calls ── */
+    for (uint8 i = 0; i < s_call_count; i++) {
+        if (!s_calls[i].active) continue;
+        if (!s_calls[i].assigned) continue;
+
+        /* Check if the assigned elevator has served this floor */
+        if (s_calls[i].assigned_to == 0) {
+            /* Elevator A */
+            LiftState_t st = ElevatorFSM_GetState(s_fsm_a);
+            Floor_t cur = ElevatorFSM_GetCurrentFloor(s_fsm_a);
+            if (cur == s_calls[i].floor &&
+                (st == LIFT_STATE_DOORS_OPEN || st == LIFT_STATE_IDLE)) {
+                s_calls[i].active = FALSE;
+            }
+        } else {
+            /* Elevator B — check from IPC */
+            ENTER_CRITICAL();
+            uint8 b_cur = g_rx_packet.current_floor;
+            uint8 b_st  = g_rx_packet.lift_state;
+            EXIT_CRITICAL();
+            if ((Floor_t)b_cur == s_calls[i].floor &&
+                (b_st == (uint8)LIFT_STATE_DOORS_OPEN ||
+                 b_st == (uint8)LIFT_STATE_IDLE)) {
+                s_calls[i].active = FALSE;
+            }
+        }
+    }
+
+    /* Compact the call table */
+    uint8 write = 0;
+    for (uint8 read = 0; read < s_call_count; read++) {
+        if (s_calls[read].active) {
+            if (write != read) {
+                s_calls[write] = s_calls[read];
+            }
+            write++;
+        }
+    }
+    s_call_count = write;
 }
 
 /* ================================================================
- * Dispatcher_AssignToA  — assign a floor to the local elevator
+ * Dispatcher_AssignToA
  * ================================================================ */
 void Dispatcher_AssignToA(Floor_t floor) {
+    if (s_fsm_a == (void*)0) return;
     ElevatorFSM_AssignTarget(s_fsm_a, floor);
+
+    Usart1_TransmitString("DISPATCH: A -> floor ");
+    SafePrintFloor(floor);
+    Usart1_TransmitString("\r\n");
 }
 
 /* ================================================================
  * Dispatcher_PublishSlaveTarget
- * Write the assignment for Elevator B into g_tx_packet.
- * IPC Sync will transmit it to the Slave on the next 50 ms cycle.
  * ================================================================ */
 void Dispatcher_PublishSlaveTarget(Floor_t floor) {
-    if (floor == s_last_slave_target) return; /* Nothing new to send */
+    if (floor == s_last_slave_target) return;
 
     ENTER_CRITICAL();
     g_tx_packet.target_floor = (uint8)floor;
@@ -167,85 +212,104 @@ void Dispatcher_PublishSlaveTarget(Floor_t floor) {
 
     s_last_slave_target = floor;
 
-    Usart1_TransmitString("DISPATCH: Slave → floor ");
-    char buf[4] = {'0' + (char)floor, '\r', '\n', '\0'};
-    Usart1_TransmitString(buf);
+    Usart1_TransmitString("DISPATCH: B -> floor ");
+    SafePrintFloor(floor);
+    Usart1_TransmitString("\r\n");
 }
 
 /* ================================================================
- * Dispatcher_ProcessCall — run priority algorithm for one call
+ * Dispatcher_ReassignCalls — reassign calls from a failed elevator
  * ================================================================ */
-static void Dispatcher_ProcessCall(Floor_t call_floor, CallDirection_t dir) {
-    /* Snapshot Elevator A (local FSM) */
+void Dispatcher_ReassignCalls(uint8 elevator_id) {
+    for (uint8 i = 0; i < s_call_count; i++) {
+        if (!s_calls[i].active) continue;
+        if (!s_calls[i].assigned) continue;
+        if (s_calls[i].assigned_to != elevator_id) continue;
+
+        /* Un-assign so it gets re-processed next tick */
+        s_calls[i].assigned = FALSE;
+    }
+}
+
+/* ================================================================
+ * Process_Call — run priority algorithm for one call
+ * ================================================================ */
+static void Process_Call(Floor_t call_floor, CallDirection_t dir) {
+    /* Snapshot Elevator A (local) */
     LiftState_t a_state   = ElevatorFSM_GetState(s_fsm_a);
     Floor_t     a_current = ElevatorFSM_GetCurrentFloor(s_fsm_a);
     Floor_t     a_target  = ElevatorFSM_GetTargetFloor(s_fsm_a);
 
-    /* Snapshot Elevator B (from last valid IPC rx packet) */
+    /* Snapshot Elevator B (from IPC) */
+    ENTER_CRITICAL();
     LiftState_t b_state   = (LiftState_t)g_rx_packet.lift_state;
     Floor_t     b_current = (Floor_t)g_rx_packet.current_floor;
     Floor_t     b_target  = (Floor_t)g_rx_packet.target_floor;
+    EXIT_CRITICAL();
 
-    /* Score both elevators */
-    uint8 score_a = Dispatcher_Score(a_state, a_current, a_target,
-                                     call_floor, dir);
-    uint8 score_b = Dispatcher_Score(b_state, b_current, b_target,
-                                     call_floor, dir);
+    /* Score both */
+    uint8 score_a = Score_Elevator(a_state, a_current, a_target, call_floor, dir);
+    uint8 score_b = Score_Elevator(b_state, b_current, b_target, call_floor, dir);
 
-    /* Do not assign to an unavailable elevator */
-    boolean a_ok = Dispatcher_ElevatorAvailable(a_state);
-    boolean b_ok = Dispatcher_ElevatorAvailable(b_state);
+    /* Emergency exclusion */
+    if (a_state == LIFT_STATE_EMERGENCY) score_a = DISPATCH_SCORE_UNAVAILABLE;
+    if (b_state == LIFT_STATE_EMERGENCY) score_b = DISPATCH_SCORE_UNAVAILABLE;
 
-    if (!a_ok) score_a = DISPATCH_SCORE_NO_MATCH;
-    if (!b_ok) score_b = DISPATCH_SCORE_NO_MATCH;
-
-    /* Both unavailable — nothing to do */
-    if (score_a == DISPATCH_SCORE_NO_MATCH &&
-        score_b == DISPATCH_SCORE_NO_MATCH) {
-        Usart1_TransmitString("DISPATCH: no elevator available\r\n");
+    /* Both unavailable — leave call pending */
+    if (score_a == DISPATCH_SCORE_UNAVAILABLE &&
+        score_b == DISPATCH_SCORE_UNAVAILABLE) {
         return;
     }
 
-    /* Tie-breaking: closer elevator wins when scores are equal */
+    /* Tie-break: closer wins; further tie: prefer A */
     boolean assign_to_a;
     if (score_a > score_b) {
         assign_to_a = TRUE;
     } else if (score_b > score_a) {
         assign_to_a = FALSE;
     } else {
-        /* Equal score — pick closest */
-        uint8 dist_a = Dispatcher_Distance(a_current, call_floor);
-        uint8 dist_b = Dispatcher_Distance(b_current, call_floor);
-        assign_to_a = (dist_a <= dist_b);
+        uint8 dist_a = Floor_Distance(a_current, call_floor);
+        uint8 dist_b = Floor_Distance(b_current, call_floor);
+        assign_to_a = (dist_a <= dist_b) ? TRUE : FALSE; /* Prefer A on tie */
     }
 
-    if (assign_to_a) {
-        Usart1_TransmitString("DISPATCH: Elevator A → floor ");
-        char buf[4] = {'0' + (char)call_floor, '\r', '\n', '\0'};
-        Usart1_TransmitString(buf);
-        Dispatcher_AssignToA(call_floor);
-    } else {
-        Dispatcher_PublishSlaveTarget(call_floor);
+    /* Assign and mark in pending table */
+    for (uint8 i = 0; i < s_call_count; i++) {
+        if (!s_calls[i].active) continue;
+        if (s_calls[i].floor == call_floor && s_calls[i].direction == dir) {
+            if (assign_to_a) {
+                Dispatcher_AssignToA(call_floor);
+                s_calls[i].assigned    = TRUE;
+                s_calls[i].assigned_to = 0;
+            } else {
+                Dispatcher_PublishSlaveTarget(call_floor);
+                s_calls[i].assigned    = TRUE;
+                s_calls[i].assigned_to = 1;
+            }
+            break;
+        }
     }
 }
 
 /* ================================================================
- * Dispatcher_Score
- *
- * Scores a single elevator (defined by state/current/target) against
- * a specific call (call_floor, call_dir) using the mandated algorithm.
+ * Score_Elevator — priority scoring for one elevator vs one call
  * ================================================================ */
-static uint8 Dispatcher_Score(LiftState_t state,   Floor_t current,
-                               Floor_t     target,   Floor_t call_floor,
-                               CallDirection_t call_dir) {
-    /* Rule 1 — IMMEDIATE: already at floor and idle */
-    if (state == LIFT_STATE_IDLE && current == call_floor) {
+static uint8 Score_Elevator(LiftState_t state, Floor_t current,
+                            Floor_t target, Floor_t call_floor,
+                            CallDirection_t call_dir) {
+
+    /* EMERGENCY — cannot accept */
+    if (state == LIFT_STATE_EMERGENCY) {
+        return DISPATCH_SCORE_UNAVAILABLE;
+    }
+
+    /* IMMEDIATE: idle and at the call floor */
+    if ((state == LIFT_STATE_IDLE || state == LIFT_STATE_DOORS_OPEN) &&
+        current == call_floor) {
         return DISPATCH_SCORE_IMMEDIATE;
     }
 
-    /* Rule 2 — PERFECT MATCH:
-     *   - Elevator is moving in the same direction as the call.
-     *   - The call floor is between current and target (not yet passed). */
+    /* PERFECT MATCH: moving toward call_floor in same direction, not passed */
     if (state == LIFT_STATE_MOVING_UP && call_dir == CALL_DIR_UP) {
         if ((uint8)current < (uint8)call_floor &&
             (uint8)call_floor <= (uint8)target) {
@@ -259,50 +323,72 @@ static uint8 Dispatcher_Score(LiftState_t state,   Floor_t current,
         }
     }
 
-    /* Rule 3 — PASSED MATCH:
-     *   Moving in the same direction but the call floor is BEHIND current. */
+    /* PASSED MATCH: same direction but already passed */
     if (state == LIFT_STATE_MOVING_UP && call_dir == CALL_DIR_UP) {
-        if ((uint8)call_floor < (uint8)current) {
+        if ((uint8)call_floor <= (uint8)current) {
             return DISPATCH_SCORE_PASSED_MATCH;
         }
     }
     if (state == LIFT_STATE_MOVING_DOWN && call_dir == CALL_DIR_DOWN) {
-        if ((uint8)call_floor > (uint8)current) {
+        if ((uint8)call_floor >= (uint8)current) {
             return DISPATCH_SCORE_PASSED_MATCH;
         }
     }
 
-    /* Rule 4 — IDLE: available but not at the called floor */
-    if (state == LIFT_STATE_IDLE) {
-        return DISPATCH_SCORE_IDLE;
-    }
-
-    /* Rule 5 — OPPOSITE DIR: moving away from the call's direction.
-     *   Do NOT assign yet; give lowest non-zero score so it becomes a
-     *   candidate only when no better option exists. */
+    /* OPPOSITE DIR: moving away — exclude from consideration */
     if ((state == LIFT_STATE_MOVING_UP   && call_dir == CALL_DIR_DOWN) ||
         (state == LIFT_STATE_MOVING_DOWN && call_dir == CALL_DIR_UP)) {
         return DISPATCH_SCORE_OPPOSITE_DIR;
     }
 
-    /* Doors open — treat similarly to idle for scoring */
-    if (state == LIFT_STATE_DOORS_OPEN) {
-        return DISPATCH_SCORE_IDLE;
+    /* IDLE NEAREST: idle but not at floor */
+    if (state == LIFT_STATE_IDLE || state == LIFT_STATE_DOORS_OPEN) {
+        return DISPATCH_SCORE_IDLE_NEAREST;
     }
 
-    return DISPATCH_SCORE_NO_MATCH;
+    return DISPATCH_SCORE_UNAVAILABLE;
 }
 
-/* Floor distance (absolute) */
-static uint8 Dispatcher_Distance(Floor_t a, Floor_t b) {
+/* ================================================================
+ * Utilities
+ * ================================================================ */
+static uint8 Floor_Distance(Floor_t a, Floor_t b) {
     uint8 ua = (uint8)a;
     uint8 ub = (uint8)b;
     return (ua > ub) ? (ua - ub) : (ub - ua);
 }
 
-/* Returns TRUE if this elevator can accept a new assignment */
-static boolean Dispatcher_ElevatorAvailable(LiftState_t state) {
-    return (state != LIFT_STATE_EMERGENCY);
+static boolean Is_Call_Pending(Floor_t floor, CallDirection_t dir) {
+    for (uint8 i = 0; i < s_call_count; i++) {
+        if (s_calls[i].active &&
+            s_calls[i].floor == floor &&
+            s_calls[i].direction == dir) {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static void Add_Pending_Call(Floor_t floor, CallDirection_t dir) {
+    if (s_call_count >= MAX_PENDING_CALLS) {
+        Usart1_TransmitString("DISPATCH: WARN call table full\r\n");
+        return;
+    }
+    s_calls[s_call_count].floor       = floor;
+    s_calls[s_call_count].direction   = dir;
+    s_calls[s_call_count].active      = TRUE;
+    s_calls[s_call_count].assigned    = FALSE;
+    s_calls[s_call_count].assigned_to = 0;
+    s_call_count++;
+}
+
+static void SafePrintFloor(Floor_t floor) {
+    uint8 f = (uint8)floor;
+    if (f >= 1 && f <= NUM_FLOORS) {
+        Usart1_TransmitByte((uint8)('0' + f));
+    } else {
+        Usart1_TransmitByte((uint8)'?');
+    }
 }
 
 #endif /* BUILD_AS_MASTER */
