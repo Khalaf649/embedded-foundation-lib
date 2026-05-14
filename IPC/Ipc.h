@@ -32,6 +32,15 @@
 // Number of consecutive failed validations before declaring a comm fault
 #define IPC_TIMEOUT_LIMIT 5U // 5 × 50ms = 250ms
 
+// Maximum time (in ms) a transfer can stay BUSY before we force-reset SPI.
+// This prevents the slave from getting permanently stuck when the master
+// hasn't started clocking yet (or vice versa).
+#define IPC_TRANSFER_TIMEOUT_MS 120U // ~2.4 IPC cycles
+
+// Boot grace period: skip fault counting for the first N sync cycles
+// to allow both boards time to initialize and stabilize.
+#define IPC_BOOT_GRACE_CYCLES 6U // 6 × 50ms = 300ms
+
 // =========================================================
 // Packet struct
 // Must be exactly IPC_PACKET_SIZE bytes — verified by static assert below.

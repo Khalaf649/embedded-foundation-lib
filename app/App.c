@@ -141,7 +141,7 @@ static void Tx_State(LiftState_t state) {
     Usart1_TransmitString("EMERGENCY ");
     break;
   case LIFT_STATE_INDEPENDENT:
-    Usart1_TransmitString("INDEPENDNT");
+    Usart1_TransmitString(" ");
     break;
   default:
     Usart1_TransmitString("UNKNOWN   ");
