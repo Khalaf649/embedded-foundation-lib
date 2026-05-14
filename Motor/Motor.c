@@ -1,6 +1,5 @@
 #include "Motor.h"
 
-static const uint8 motorSpeedMapper[3] = {0, 20, 100};
 static Motor_Speed_t s_current_speed = MOTOR_REST;
 
 
@@ -28,7 +27,7 @@ void Motor_SetSpeed(Motor_Speed_t speed_lvl) {
     if (speed_lvl > MOTOR_HIGH_SPEED) return;
 
     s_current_speed = speed_lvl;
-    Pwm_SetDutyPercent(MOTOR_TIMER, MOTOR_CHANNEL, motorSpeedMapper[speed_lvl]);
+    Pwm_SetDutyPercent(MOTOR_TIMER, MOTOR_CHANNEL, speed_lvl);
 
     switch (speed_lvl) {
         case MOTOR_REST:       Usart1_TransmitString("MOTOR: STOP (0%)\r\n");    break;

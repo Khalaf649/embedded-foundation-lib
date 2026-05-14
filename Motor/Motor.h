@@ -15,8 +15,8 @@
 /* --- Speed Levels --- */
 typedef enum {
     MOTOR_REST = 0,      // 0%
-    MOTOR_LOW_SPEED,     // 20%
-    MOTOR_HIGH_SPEED     // 100%
+    MOTOR_LOW_SPEED=20,     // 20%
+    MOTOR_HIGH_SPEED=100     // 100%
 } Motor_Speed_t;
 
 /* --- APIs --- */
